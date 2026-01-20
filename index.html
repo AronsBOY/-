@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股市比爾強 v5.0 AI旗艦版</title>
+    <title>股市比爾強 v5.1 AI旗艦版</title>
     
     <!-- App 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -442,15 +442,64 @@
         };
 
         // --- Settings Modal ---
-        const CloudSettingsModal = ({ onClose, onConnect, currentRoom, apiKey, setApiKey }) => {
+        const CloudSettingsModal = ({ onClose, onConnect, currentRoom, apiKey, setApiKey, data, onRestore }) => {
             const [roomName, setRoomName] = useState(currentRoom || "default");
             const [logs, setLogs] = useState([]);
+
             useEffect(() => {
                 const updateLogs = () => setLogs([...globalLog]);
                 window.addEventListener('logUpdated', updateLogs);
                 updateLogs();
                 return () => window.removeEventListener('logUpdated', updateLogs);
             }, []);
+
+            // 匯出備份
+            const handleExport = () => {
+                const backupData = {
+                    version: "5.1",
+                    timestamp: new Date().toISOString(),
+                    transactions: data.transactions,
+                    prices: data.prices,
+                    metaData: data.metaData,
+                    settings: {
+                        syncRoom: data.syncRoom,
+                        // geminiApiKey: data.geminiApiKey // 安全起見，不備份 Key
+                    }
+                };
+                const blob = new Blob([JSON.stringify(backupData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `stock_bill_backup_${new Date().toISOString().split('T')[0]}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            };
+
+            // 匯入備份
+            const handleImport = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    try {
+                        const backup = JSON.parse(event.target.result);
+                        if (!backup.transactions || !backup.prices) {
+                            alert("無效的備份檔案格式");
+                            return;
+                        }
+                        if (confirm(`確定要從備份回復資料嗎？\n備份時間: ${backup.timestamp}`)) {
+                            onRestore(backup);
+                            alert("資料回復成功！");
+                        }
+                    } catch (err) {
+                        alert("讀取備份檔案失敗");
+                        console.error(err);
+                    }
+                };
+                reader.readAsText(file);
+            };
 
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
@@ -460,10 +509,25 @@
                             <button onClick={onClose}><Icon name="x"/></button>
                         </div>
                         <div className="space-y-4 overflow-y-auto pr-1">
+                            {/* 同步設定 */}
                             <div><label className="block text-sm font-bold mb-1">同步房間名稱</label><input type="text" value={roomName} onChange={(e)=>setRoomName(e.target.value)} className="w-full border rounded p-2"/></div>
                             <div><label className="block text-sm font-bold mb-1">Gemini API Key</label><input type="password" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} className="w-full border rounded p-2"/></div>
-                            <button onClick={()=>{onConnect(roomName); onClose();}} className="w-full bg-blue-600 text-white font-bold py-2 rounded">儲存設定</button>
+                            <button onClick={()=>{onConnect(roomName); onClose();}} className="w-full bg-blue-600 text-white font-bold py-2 rounded">儲存設定 & 連線</button>
                             
+                            {/* 備份還原專區 */}
+                            <div className="pt-4 border-t border-slate-200">
+                                <h3 className="text-sm font-bold text-slate-700 mb-2">資料備份與還原</h3>
+                                <div className="flex gap-2">
+                                    <button onClick={handleExport} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded flex items-center justify-center gap-1 border border-slate-300">
+                                        <Icon name="download" size={16}/> 匯出備份
+                                    </button>
+                                    <label className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2 rounded flex items-center justify-center gap-1 border border-slate-300 cursor-pointer">
+                                        <Icon name="upload" size={16}/> 匯入還原
+                                        <input type="file" accept=".json" onChange={handleImport} className="hidden"/>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="mt-4 border-t pt-4">
                                 <h3 className="text-sm font-bold text-slate-700 mb-2">系統日誌</h3>
                                 <div className="bg-slate-900 text-green-400 font-mono text-xs p-3 rounded h-40 overflow-y-auto">
@@ -643,6 +707,14 @@
                 localStorage.setItem('stock_bill_meta', JSON.stringify(metaData));
             }, [transactions, prices, metaData, user, isSyncing, syncRoom]);
 
+            // Restore Data Function
+            const handleRestore = (backup) => {
+                if(backup.transactions) setTransactions(backup.transactions);
+                if(backup.prices) setPrices(backup.prices);
+                if(backup.metaData) setMetaData(backup.metaData);
+                if(backup.settings?.syncRoom) setSyncRoom(backup.settings.syncRoom);
+            };
+
             const handleAIResult = (data, mode) => {
                 if (mode === 'transactions') {
                     if (Array.isArray(data) && data.length > 0) {
@@ -790,15 +862,15 @@
                 <div className="min-h-screen font-sans text-slate-900 pb-10 relative">
                     {/* ... (Modals 省略，與 v4.8 相同，僅需注意 AIGeminiModal 的 Prompt 已在上面更新) ... */}
                     {editingId && <EditTransactionModal transaction={transactions.find(t => t.id === editingId)} onSave={(updatedTx) => {setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t)); setEditingId(null);}} onCancel={() => setEditingId(null)} />}
-                    {showCloudSettings && <CloudSettingsModal onClose={() => setShowCloudSettings(false)} onConnect={(room)=>{setSyncRoom(room);setIsSyncing(true);}} currentRoom={syncRoom} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
-                    {showAIModal && <AIGeminiModal onClose={() => setShowAIModal(false)} onAnalyze={handleAIResult} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
+                    {showCloudSettings && <CloudSettingsModal onClose={() => setShowCloudSettings(false)} onConnect={(room)=>{setSyncRoom(room);setIsSyncing(true);}} currentRoom={syncRoom} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} data={{transactions, prices, metaData, syncRoom, geminiApiKey}} onRestore={handleRestore} />}
+                    {showAIModal && <SmartInputModal onClose={() => setShowAIModal(false)} onAnalyze={handleAIResult} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
                     {showSimpleTable && <SimpleHoldingsModal holdings={portfolio.holdings} onClose={() => setShowSimpleTable(false)} />}
 
                     <header className="bg-yellow-400 shadow-xl border-b-4 border-orange-500 sticky top-0 z-40 header-fun-pattern">
                         {/* ... (Header 保持不變) ... */}
                         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center relative z-10 gap-4">
                             <div className="flex items-center gap-4">
-                                <label className="relative cursor-pointer group flex-shrink-0 z-50">
+                                <label className="relative cursor-pointer group flex-shrink-0 z-50" title="點擊更換頭貼 (自動儲存)">
                                     <div className="w-16 h-16 rounded-full border-4 border-orange-500 bg-white overflow-hidden shadow-xl flex items-center justify-center">
                                         {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <Icon name="user" size={40} className="text-slate-300" />}
                                     </div>
@@ -807,7 +879,7 @@
                                 <div>
                                     <h1 className="text-6xl md:text-7xl font-extrabold text-blue-800 tracking-wide ml-8 drop-shadow-2xl" style={{ textShadow: '4px 4px 0px #fff' }}>股市比爾強</h1>
                                     <p className="text-lg font-bold text-white tracking-widest ml-9 mt-1 drop-shadow-md">產業趨勢挖掘者</p>
-                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v5.0 AI 旗艦版</p>
+                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v5.1 AI 旗艦版</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
