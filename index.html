@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股市比爾強 v5.2 AI旗艦版</title>
+    <title>股市比爾強 v5.3 AI旗艦版</title>
     
     <!-- App 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -78,7 +78,7 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
         // ==================================================================================
-        // 🔴 您的 Firebase 設定
+        // 🔴 您的 Firebase 設定 (已植入)
         // ==================================================================================
         const MANUAL_FIREBASE_CONFIG = {
             apiKey: "AIzaSyBHZCCTR2pcISXTcFlKAQw-qCuss3tuVn4",
@@ -203,6 +203,27 @@
                     });
                 }
                 return Object.keys(result).length > 0 ? result : null;
+            } else if (mode === 'transactions') {
+                const result = [];
+                const todayStr = new Date().toISOString().split('T')[0].replace(/-/g, '/');
+                lines.forEach(line => {
+                    const codeMatch = line.match(/(.*?)[(（](\d{4})[)）](.*)/);
+                    if (codeMatch) {
+                        const rawName = codeMatch[1].trim().replace(/^[^a-zA-Z\u4e00-\u9fa5]+/, '');
+                        const code = codeMatch[2];
+                        const content = codeMatch[3];
+                        let type = 'Buy', qty = 1000;
+                        if (content.includes('賣') || content.includes('出') || content.includes('結')) type = 'Sell';
+                        if (content.includes('創新高') || content.includes('續抱') || content.includes('共襄盛舉') || content.includes('持有')) qty = 0;
+                        let price = 0;
+                        const priceMatch = content.match(/(\d+(?:\.\d+)?)(?:[-~](\d+(?:\.\d+)?))?/);
+                        if (priceMatch) {
+                            price = priceMatch[2] ? (parseFloat(priceMatch[1]) + parseFloat(priceMatch[2])) / 2 : parseFloat(priceMatch[1]);
+                        }
+                        result.push({ date: todayStr, code: code, name: rawName, type: type, price: price, qty: qty, note: line.trim() });
+                    }
+                });
+                return result.length > 0 ? result : null;
             }
             return null;
         };
@@ -348,64 +369,46 @@
             const [mode, setMode] = useState('transactions'); 
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [textInput, setTextInput] = useState('');
-            const fileInputRef = useRef(null);
 
             const handleAnalyze = async () => {
-                if (!textInput.trim() && !fileInputRef.current?.files?.[0]) {
-                    alert("請貼上文字指令或上傳圖片");
-                    return;
-                }
+                if (!textInput.trim()) { alert("請貼上文字指令"); return; }
+                if (!apiKey) { alert("請先輸入 Gemini API Key"); return; }
 
                 setIsAnalyzing(true);
-
-                // 1. 優先嘗試本地文字解析 (不需 API)
-                if (textInput.trim()) {
-                    const localResult = parseTextLocally(textInput, mode);
-                    if (localResult) {
-                        onAnalyze(localResult, mode);
-                        onClose();
-                        alert(`✅ 文字分析成功！(本地模式)`);
-                        setIsAnalyzing(false);
-                        return;
-                    }
-                }
-
-                // 2. 如果本地解析失敗，才嘗試使用 Gemini API
-                if (!apiKey) {
-                    alert("⚠️ 無法識別文字格式，或您上傳了圖片。\n若要使用進階 AI 分析(含圖片)，請輸入 Gemini API Key。");
-                    setIsAnalyzing(false);
-                    return;
-                }
-
                 try {
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
                     
                     let prompt = "";
-                    let content = [];
-
-                    if (mode === 'transactions') {
-                        prompt = `你是一個股票交易助手。請分析以下內容(文字或圖片)。
-                        提取交易資訊：date(YYYY/MM/DD, 若無年份請用 ${new Date().getFullYear()}, 若無日期請用今日), code, name, type(Buy/Sell), price(數值), qty(數值, 預設1000), note(保留完整指令內容, 若有'新會員'字樣請標註)。
-                        特殊規則：
-                        1. 若指令為「心得分享」或「看法」而無明確買賣動作（如"創新高", "獲利不錯", "續抱", "共襄盛舉"），請建立一筆 qty: 0 的 Buy 交易，並將內容完整放入 note。
-                        2. 若指令包含 "加碼", "買進", "建倉" -> type: Buy。
-                        3. 若指令包含 "賣出", "獲利了結", "調節" -> type: Sell。
-                        請回傳 JSON Array。只回傳JSON，不要Markdown。
-                        ${textInput ? '文字內容：\n' + textInput : ''}`;
-                    } else {
-                        prompt = `請辨識內容中的股票清單與最新價格(收盤價)。回傳 JSON Object。Key為代號，Value為價格。範例：{"2330": 1050, "2317": 200}。只回傳JSON。
-                        ${textInput ? '文字內容：\n' + textInput : ''}`;
-                    }
-
-                    content.push(prompt);
                     
-                    if (fileInputRef.current?.files?.[0]) {
-                        const imagePart = await fileToGenerativePart(fileInputRef.current.files[0]);
-                        content.push(imagePart);
+                    if (mode === 'transactions') {
+                        prompt = `你是一個股票交易助手。請分析以下[葉宇乘]的文字指令。
+                        請提取：
+                        1. 交易資訊 (若有): date(YYYY/MM/DD), code, name, type(Buy/Sell), price(數值), qty(數值, 預設1000)。
+                        2. 葉宇乘的話 (thoughts): 提取指令中關於該股票的分析、心得、獲利狀況等文字。
+                        
+                        特殊規則：
+                        - 若指令為「心得分享」或「看法」而無明確買賣，建立一筆 qty: 0 的 Buy 交易，並將分析放入 thoughts。
+                        - 價格若為區間 (69-70)，取平均。
+                        - note 欄位請保留原始指令。
+                        - **若指令中含有「新會員」字樣，請將 qty 設為 0，這非常重要！**
+                        
+                        回傳 JSON Array。範例：[{"date":"2026/01/20", "code":"8150", "name":"南茂", "type":"Buy", "price":69.5, "qty":0, "note":"[葉宇乘] 新會員...", "thoughts":"..."}]。
+                        只回傳JSON。
+                        
+                        文字內容：
+                        ${textInput}`;
+                    } else {
+                        prompt = `請辨識以下文字中的股票清單與價格。
+                        提取：代號(code), 收盤價(price), 前日收盤(prev)。
+                        若無前日收盤，prev 可設為 null。
+                        回傳 JSON Object: {"3189": {"price": 206.0, "prev": 211.5}, "4722": {"price": 169.5, "prev": 162.0}}。
+                        只回傳JSON。
+                        文字內容：
+                        ${textInput}`;
                     }
 
-                    const result = await model.generateContent(content);
+                    const result = await model.generateContent([prompt]);
                     const response = await result.response;
                     const text = response.text();
                     const data = cleanAndParseJSON(text);
@@ -413,9 +416,9 @@
                     if (data) {
                         onAnalyze(data, mode);
                         onClose();
-                        alert("✅ AI 分析完成！");
+                        alert("✅ AI 分析完成並更新！");
                     } else {
-                        alert("❌ AI 無法解析資料，請確認格式。");
+                        alert("❌ AI 無法解析資料。");
                     }
                 } catch (error) {
                     console.error("AI Error:", error);
@@ -429,17 +432,16 @@
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                     <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative flex flex-col max-h-[90vh]">
                         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><Icon name="x"/></button>
-                        <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-slate-800"><Icon name="bot" className="text-orange-600"/> 智慧助理 (文字/AI)</h2>
+                        <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-slate-800"><Icon name="bot" className="text-orange-600"/> 智慧助理</h2>
                         
                         <div className="space-y-4 overflow-y-auto pr-2">
-                            {/* API Key Input (Optional hint) */}
                             <div className="relative">
-                                <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Gemini API Key (純文字模式可不填)" className="w-full border rounded p-2 text-sm bg-slate-50"/>
-                                <span className="absolute right-2 top-2 text-[10px] text-slate-400 bg-white px-1">選填</span>
+                                <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Gemini API Key (已移除預設值)" className="w-full border rounded p-2 text-sm bg-slate-50"/>
+                                <span className="absolute right-2 top-2 text-[10px] text-slate-400 bg-white px-1">請填入新 Key</span>
                             </div>
                             
                             <div className="flex bg-slate-100 p-1 rounded-lg">
-                                <button onClick={() => setMode('transactions')} className={`flex-1 py-2 text-sm font-bold rounded transition-all ${mode==='transactions'?'bg-white shadow text-blue-600':'text-slate-500'}`}>辨識交易/指令</button>
+                                <button onClick={() => setMode('transactions')} className={`flex-1 py-2 text-sm font-bold rounded transition-all ${mode==='transactions'?'bg-white shadow text-blue-600':'text-slate-500'}`}>指令/心得 (更新葉宇乘的話)</button>
                                 <button onClick={() => setMode('prices')} className={`flex-1 py-2 text-sm font-bold rounded transition-all ${mode==='prices'?'bg-white shadow text-blue-600':'text-slate-500'}`}>更新股價</button>
                             </div>
 
@@ -447,24 +449,13 @@
                                 <textarea 
                                     value={textInput}
                                     onChange={(e) => setTextInput(e.target.value)}
-                                    placeholder={mode === 'transactions' ? "在此貼上老師的指令...\n例如：\n[葉宇乘-進階組:]\n南茂(8150) 昨天的69-70附近，可以加碼..." : "在此貼上股價列表...\n例如：\n1️⃣ 景碩（3189）\n股價：206.0"}
+                                    placeholder={mode === 'transactions' ? "貼上 [葉宇乘] 指令...\n例如：南茂(8150) 昨天的69-70附近，可以加碼，這獲利很不錯。" : "貼上股價列表..."}
                                     className="w-full h-48 border rounded-lg p-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none resize-none bg-slate-50"
                                 ></textarea>
                             </div>
 
-                            <div className="relative flex py-2 items-center">
-                                <div className="flex-grow border-t border-slate-200"></div>
-                                <span className="flex-shrink-0 mx-4 text-slate-400 text-xs">或是 (需要 API Key)</span>
-                                <div className="flex-grow border-t border-slate-200"></div>
-                            </div>
-
-                            <button onClick={() => fileInputRef.current.click()} className="w-full border-2 border-dashed border-slate-300 hover:border-purple-500 hover:bg-purple-50 text-slate-500 py-3 rounded-xl flex items-center justify-center gap-2 transition-all text-sm">
-                                <Icon name="image" size={16}/> 上傳截圖分析
-                            </button>
-                            <input type="file" ref={fileInputRef} accept="image/*" className="hidden" />
-
                             <button onClick={handleAnalyze} disabled={isAnalyzing} className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-4 transition-all">
-                                {isAnalyzing ? '分析中...' : <><Icon name="zap"/> 開始分析</>}
+                                {isAnalyzing ? 'AI 分析中...' : <><Icon name="zap"/> 開始分析</>}
                             </button>
                         </div>
                     </div>
@@ -487,7 +478,7 @@
             // 匯出備份
             const handleExport = () => {
                 const backupData = {
-                    version: "5.1",
+                    version: "5.3",
                     timestamp: new Date().toISOString(),
                     transactions: data.transactions,
                     prices: data.prices,
@@ -650,7 +641,7 @@
             const [metaData, setMetaData] = useState(INITIAL_META_DATA);
 
             const [userAvatar, setUserAvatar] = useState(null);
-            const [geminiApiKey, setGeminiApiKey] = useState("AIzaSyDVIFDMODO28W2hW3Cfv7egUyO4LApzR50");
+            const [geminiApiKey, setGeminiApiKey] = useState("");
             const [syncRoom, setSyncRoom] = useState("default");
             const [isSyncing, setIsSyncing] = useState(false); 
             const [showCloudSettings, setShowCloudSettings] = useState(false);
