@@ -77,18 +77,17 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
         // ==================================================================================
-        // 🔴 戰情室指令：請將您的 Firebase Config 貼在下方，即可啟用多人同步功能！
-        // 1. 到 firebase.google.com 建立專案 -> 新增 Web App -> 複製 const firebaseConfig = {...}
-        // 2. 貼在下方 MANUAL_FIREBASE_CONFIG 中
+        // 🔴 戰情室指令：您的 Firebase 設定已植入！
         // ==================================================================================
-        // const MANUAL_FIREBASE_CONFIG = {
-        //   apiKey: "AIzaSyBHZCCTR2pcISXTcFlKAQw-qCuss3tuVn4",
-        //   authDomain: "billjohnloveu.firebaseapp.com",
-        //   projectId: "billjohnloveu",
-        //   storageBucket: "billjohnloveu.firebasestorage.app",
-        //   messagingSenderId: "785959737628",
-        //   appId: "1:785959737628:web:9cf63b00db322dd6ce82d9"
-        // measurementId: "G-QQ1HVNYMRS";};
+        const MANUAL_FIREBASE_CONFIG = {
+            apiKey: "AIzaSyBHZCCTR2pcISXTcFlKAQw-qCuss3tuVn4",
+            authDomain: "billjohnloveu.firebaseapp.com",
+            projectId: "billjohnloveu",
+            storageBucket: "billjohnloveu.firebasestorage.app",
+            messagingSenderId: "785959737628",
+            appId: "1:785959737628:web:9cf63b00db322dd6ce82d9",
+            measurementId: "G-QQ1HVNYMRS"
+        };
 
         // --- Firebase 初始化 ---
         const rawConfig = window.__firebase_config;
@@ -997,5 +996,3 @@
     </script>
 </body>
 </html>
-
-
