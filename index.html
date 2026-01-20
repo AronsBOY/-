@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股市比爾強 v4.7 AI旗艦版</title>
+    <title>股市比爾強 v4.8 AI旗艦版</title>
     
     <!-- App 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -43,13 +43,11 @@
         html, body { overscroll-behavior-y: none; }
         .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
         
-        /* 股市背景淺影 (Body) */
         .bg-kline-pattern {
             background-color: #facc15;
             background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 50v-10h2v10h-2zm0 20v-10h2v10h-2zm10-30v-15h2v15h-2zm0 25v-15h2v15h-2zm10 10v-20h2v20h-2zm0-30v-10h2v10h-2zm10 20v-25h2v25h-2zm0 15v-5h2v5h-2zm10-40v-10h2v10h-2zm0 45v-25h2v25h-2zm10-15v-10h2v10h-2zm0 20v-5h2v5h-2zm10-40v-5h2v5h-2zm0 35v-20h2v20h-2z' fill='%23ffffff' fill-opacity='0.15' fill-rule='evenodd'/%3E%3C/svg%3E");
         }
 
-        /* 頂部趣味背景 */
         .header-fun-pattern {
             background-color: #fbbf24;
             background-image: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.2) 0%, transparent 20%),
@@ -77,7 +75,7 @@
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
         // ==================================================================================
-        // 🔴 戰情室指令：您的 Firebase 設定已植入！
+        // 🔴 您的 Firebase 設定
         // ==================================================================================
         const MANUAL_FIREBASE_CONFIG = {
             apiKey: "AIzaSyBHZCCTR2pcISXTcFlKAQw-qCuss3tuVn4",
@@ -92,14 +90,19 @@
         // --- Firebase 初始化 ---
         const rawConfig = window.__firebase_config;
         let activeConfig = MANUAL_FIREBASE_CONFIG;
-        
-        // 如果網頁環境有提供 config，且沒有手動設定，才使用預設
-        if (!activeConfig && rawConfig) {
-             try { activeConfig = JSON.parse(rawConfig); } catch(e){}
-        }
+        if (!activeConfig && rawConfig) { try { activeConfig = JSON.parse(rawConfig); } catch(e){} }
 
         let app, auth, db, appId;
         let isFirebaseAvailable = false;
+        let globalLog = []; // 用於顯示在診斷面板的日誌
+
+        const addLog = (msg) => {
+            console.log(msg);
+            globalLog.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
+            if (globalLog.length > 20) globalLog.pop();
+            // 觸發自定義事件通知 React 元件更新 (簡單實作)
+            window.dispatchEvent(new Event('logUpdated'));
+        };
 
         if (activeConfig) {
             try {
@@ -110,12 +113,12 @@
                 if (!window.__app_id && activeConfig.projectId) appId = activeConfig.projectId;
                 
                 isFirebaseAvailable = true;
-                console.log("✅ Firebase 連線成功，App ID:", appId);
+                addLog(`Firebase 初始化成功，App ID: ${appId}`);
             } catch (e) {
-                console.warn("⚠️ Firebase 初始化失敗，將使用單機模式。", e);
+                addLog(`Firebase 初始化失敗: ${e.message}`);
             }
         } else {
-            console.log("ℹ️ 未檢測到 Firebase Config，啟動單機模式");
+            addLog("未檢測到 Firebase Config，啟動單機模式");
         }
 
         const { useState, useMemo, useEffect, useRef } = React;
@@ -342,16 +345,15 @@
         const getColor = (val) => val > 0 ? 'text-red-600' : val < 0 ? 'text-green-600' : 'text-slate-900';
         const getPriceColor = (current, cost) => current > cost ? 'text-red-600' : current < cost ? 'text-green-600' : 'text-slate-800';
 
-        // --- Smart Input Modal (Replacing AIGeminiModal) ---
+        // --- Smart Input Modal ---
         const SmartInputModal = ({ onClose, onAnalyze, apiKey, setApiKey }) => {
             const [mode, setMode] = useState('transactions'); 
             const [isAnalyzing, setIsAnalyzing] = useState(false);
             const [textInput, setTextInput] = useState('');
-            const fileInputRef = useRef(null);
 
             const handleAnalyze = async () => {
-                if (!textInput.trim() && !fileInputRef.current?.files?.[0]) {
-                    alert("請貼上文字指令或上傳圖片");
+                if (!textInput.trim()) {
+                    alert("請貼上文字指令");
                     return;
                 }
 
@@ -369,9 +371,9 @@
                     }
                 }
 
-                // 2. 如果本地解析失敗或有圖片，才嘗試使用 Gemini API
+                // 2. 如果本地解析失敗，才嘗試使用 Gemini API
                 if (!apiKey) {
-                    alert("⚠️ 無法識別文字格式，或您上傳了圖片。\n若要使用進階 AI 分析(含圖片)，請輸入 Gemini API Key。");
+                    alert("⚠️ 無法識別文字格式，請確認是否為支援的格式，或輸入 Gemini API Key 使用 AI 分析。");
                     setIsAnalyzing(false);
                     return;
                 }
@@ -381,30 +383,23 @@
                     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                     
                     let prompt = "";
-                    let content = [];
-
                     if (mode === 'transactions') {
-                        prompt = `你是一個股票交易助手。請分析以下內容(文字或圖片)。
-                        提取交易資訊：date(YYYY/MM/DD, 若無年份請用 ${new Date().getFullYear()}, 若無日期請用今日), code, name, type(Buy/Sell), price(數值), qty(數值, 預設1000), note(保留完整指令內容, 若有'新會員'字樣請標註)。
+                        prompt = `你是一個股票交易助手。請分析以下使用者的文字指令。
+                        請提取交易資訊：date(YYYY/MM/DD, 若無年份請用 ${new Date().getFullYear()}, 若無日期請用今日), code, name, type(Buy/Sell), price(數值), qty(數值, 預設1000), note(保留完整指令內容, 若有'新會員'字樣請標註)。
                         特殊規則：
-                        1. 若指令為「心得分享」或「看法」而無明確買賣動作（如"創新高", "獲利不錯", "續抱", "共襄盛舉"），請建立一筆 qty: 0 的 Buy 交易，並將內容完整放入 note。
+                        1. 若指令為「心得分享」或「看法」而無明確買賣動作，請建立一筆 qty: 0 的 Buy 交易，並將內容完整放入 note。
                         2. 若指令包含 "加碼", "買進", "建倉" -> type: Buy。
                         3. 若指令包含 "賣出", "獲利了結", "調節" -> type: Sell。
                         請回傳 JSON Array。只回傳JSON，不要Markdown。
-                        ${textInput ? '文字內容：\n' + textInput : ''}`;
+                        文字內容：
+                        ${textInput}`;
                     } else {
-                        prompt = `請辨識內容中的股票清單與最新價格(收盤價)。回傳 JSON Object。Key為代號，Value為價格。範例：{"2330": 1050, "2317": 200}。只回傳JSON。
-                        ${textInput ? '文字內容：\n' + textInput : ''}`;
+                        prompt = `請辨識以下文字中的股票清單與最新價格(收盤價)。回傳 JSON Object。Key為代號，Value為價格。範例：{"2330": 1050, "2317": 200}。只回傳JSON，不要Markdown。
+                        文字內容：
+                        ${textInput}`;
                     }
 
-                    content.push(prompt);
-                    
-                    if (fileInputRef.current?.files?.[0]) {
-                        const imagePart = await fileToGenerativePart(fileInputRef.current.files[0]);
-                        content.push(imagePart);
-                    }
-
-                    const result = await model.generateContent(content);
+                    const result = await model.generateContent([prompt]);
                     const response = await result.response;
                     const text = response.text();
                     const data = cleanAndParseJSON(text);
@@ -431,7 +426,6 @@
                         <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-slate-800"><Icon name="bot" className="text-orange-600"/> 智慧助理 (文字/AI)</h2>
                         
                         <div className="space-y-4 overflow-y-auto pr-2">
-                            {/* API Key Input (Optional hint) */}
                             <div className="relative">
                                 <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Gemini API Key (純文字模式可不填)" className="w-full border rounded p-2 text-sm bg-slate-50"/>
                                 <span className="absolute right-2 top-2 text-[10px] text-slate-400 bg-white px-1">選填</span>
@@ -451,17 +445,6 @@
                                 ></textarea>
                             </div>
 
-                            <div className="relative flex py-2 items-center">
-                                <div className="flex-grow border-t border-slate-200"></div>
-                                <span className="flex-shrink-0 mx-4 text-slate-400 text-xs">或是 (需要 API Key)</span>
-                                <div className="flex-grow border-t border-slate-200"></div>
-                            </div>
-
-                            <button onClick={() => fileInputRef.current.click()} className="w-full border-2 border-dashed border-slate-300 hover:border-purple-500 hover:bg-purple-50 text-slate-500 py-3 rounded-xl flex items-center justify-center gap-2 transition-all text-sm">
-                                <Icon name="image" size={16}/> 上傳截圖分析
-                            </button>
-                            <input type="file" ref={fileInputRef} accept="image/*" className="hidden" />
-
                             <button onClick={handleAnalyze} disabled={isAnalyzing} className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-4 transition-all">
                                 {isAnalyzing ? '分析中...' : <><Icon name="zap"/> 開始分析</>}
                             </button>
@@ -474,14 +457,44 @@
         // --- Settings Modal ---
         const CloudSettingsModal = ({ onClose, onConnect, currentRoom, apiKey, setApiKey }) => {
             const [roomName, setRoomName] = useState(currentRoom || "default");
+            const [logs, setLogs] = useState([]);
+            
+            // 訂閱 log 更新
+            useEffect(() => {
+                const updateLogs = () => setLogs([...globalLog]);
+                window.addEventListener('logUpdated', updateLogs);
+                updateLogs(); // 初始載入
+                return () => window.removeEventListener('logUpdated', updateLogs);
+            }, []);
+
             return (
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
-                    <div className="bg-white rounded-2xl w-full max-w-md p-6">
-                        <div className="flex justify-between items-center mb-4"><h2 className="text-xl font-bold">系統設定</h2><button onClick={onClose}><Icon name="x"/></button></div>
-                        <div className="space-y-4">
-                            <div><label className="block text-sm font-bold mb-1">同步房間名稱</label><input type="text" value={roomName} onChange={(e)=>setRoomName(e.target.value)} className="w-full border rounded p-2"/></div>
-                            <div><label className="block text-sm font-bold mb-1">Gemini API Key</label><input type="password" value={apiKey} onChange={(e)=>setApiKey(e.target.value)} className="w-full border rounded p-2"/></div>
-                            <button onClick={()=>{onConnect(roomName); onClose();}} className="w-full bg-blue-600 text-white font-bold py-2 rounded">儲存設定</button>
+                    <div className="bg-white rounded-2xl w-full max-w-md p-6 max-h-[90vh] flex flex-col">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2">
+                            <h2 className="text-xl font-bold flex items-center gap-2"><Icon name="settings" className="text-slate-600"/> 系統設定與診斷</h2>
+                            <button onClick={onClose}><Icon name="x"/></button>
+                        </div>
+                        <div className="space-y-4 overflow-y-auto pr-1">
+                            <div>
+                                <label className="block text-sm font-bold mb-1">同步房間名稱</label>
+                                <input type="text" value={roomName} onChange={(e)=>setRoomName(e.target.value)} className="w-full border rounded p-2"/>
+                            </div>
+                            
+                            {/* 強制同步按鈕 */}
+                            <div className="pt-2">
+                                <button onClick={()=>{onConnect(roomName);}} className="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 rounded flex items-center justify-center gap-2 shadow-md mb-2">
+                                    <Icon name="upload-cloud" size={18}/> 強制上傳本機資料
+                                </button>
+                                <p className="text-xs text-slate-500 text-center">若綠燈亮起但資料未同步，請點此按鈕。</p>
+                            </div>
+
+                            {/* 診斷日誌 */}
+                            <div className="mt-4 border-t pt-4">
+                                <h3 className="text-sm font-bold text-slate-700 mb-2">戰場日誌 (Debug Log)</h3>
+                                <div className="bg-slate-900 text-green-400 font-mono text-xs p-3 rounded h-40 overflow-y-auto">
+                                    {logs.length === 0 ? "尚無日誌..." : logs.map((log, i) => <div key={i} className="mb-1 border-b border-slate-800 pb-1">{log}</div>)}
+                                </div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -577,31 +590,33 @@
                 const initAuth = async () => {
                     if (isFirebaseAvailable) {
                         try {
-                            // 修正邏輯：如果使用的是手動設定的 Config (MANUAL_FIREBASE_CONFIG)，
-                            // 則不應該使用 Canvas 環境提供的 __initial_auth_token
                             const usingManualConfig = activeConfig === MANUAL_FIREBASE_CONFIG;
-                            
                             if (!usingManualConfig && window.__initial_auth_token) {
                                 await signInWithCustomToken(auth, window.__initial_auth_token);
+                                addLog("使用 Custom Token 登入");
                             } else {
                                 await signInAnonymously(auth);
+                                addLog("使用匿名登入成功");
                             }
-                            
-                            onAuthStateChanged(auth, setUser);
+                            onAuthStateChanged(auth, (u) => {
+                                setUser(u);
+                                if(u) addLog(`用戶已登入: ${u.uid.substring(0,5)}...`);
+                            });
                         } catch (error) {
                             console.error("Firebase Auth Error:", error);
                             let errorMsg = "雲端連線失敗，切換至單機模式。";
                             if (error.code === 'auth/operation-not-allowed') {
-                                errorMsg = "⚠️ 請至 Firebase Console 開啟「匿名登入 (Anonymous Auth)」功能，否則無法同步。";
+                                errorMsg = "⚠️ 請至 Firebase Console 開啟「匿名登入」功能！";
                             } else if (error.code === 'auth/configuration-not-found') {
-                                errorMsg = "⚠️ Firebase 設定錯誤，請檢查 Console 的 Authentication 設定。";
+                                errorMsg = "⚠️ Firebase 設定錯誤。";
                             }
+                            addLog(`Auth Error: ${error.code}`);
                             alert(errorMsg);
-                            // Fallback
                             setUser({ uid: 'local-user' });
                         }
                     } else {
                         setUser({ uid: 'local-user' });
+                        addLog("單機模式啟動");
                     }
                 };
                 initAuth();
@@ -615,7 +630,7 @@
                 const savedRoom = localStorage.getItem('stock_bill_fb_room');
                 if (savedRoom) { setSyncRoom(savedRoom); setIsSyncing(true); }
                 const savedAvatar = localStorage.getItem('stock_bill_avatar');
-                if (savedAvatar) setUserAvatar(savedAvatar); // 自動載入大頭貼
+                if (savedAvatar) setUserAvatar(savedAvatar); 
 
                 if (!isFirebaseAvailable) {
                     const localTx = localStorage.getItem('stock_bill_transactions');
@@ -633,7 +648,31 @@
                 if(f) {
                     const base64 = await compressImage(f);
                     setUserAvatar(base64);
-                    localStorage.setItem('stock_bill_avatar', base64); // 永久儲存
+                    localStorage.setItem('stock_bill_avatar', base64);
+                    addLog("大頭貼已更新");
+                }
+            };
+
+            // 手動觸發上傳
+            const handleManualSync = async (room) => {
+                if (!user || !isFirebaseAvailable) {
+                    alert("目前處於單機模式，無法上傳");
+                    return;
+                }
+                setSyncRoom(room);
+                setIsSyncing(true);
+                localStorage.setItem('stock_bill_fb_room', room);
+                addLog(`正在強制上傳資料至房間: ${room}`);
+                
+                try {
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_bill_rooms', room);
+                    await setDoc(docRef, { transactions: JSON.stringify(transactions), prices: JSON.stringify(prices) }, { merge: true });
+                    addLog("✅ 強制上傳成功！");
+                    alert("資料已成功上傳至雲端！");
+                } catch(e) {
+                    console.error(e);
+                    addLog(`❌ 上傳失敗: ${e.code || e.message}`);
+                    if (e.code === 'permission-denied') alert("上傳失敗：權限不足。請檢查 Firebase Rules。");
                 }
             };
 
@@ -641,23 +680,32 @@
             useEffect(() => {
                 if (!user || !syncRoom || !isFirebaseAvailable) return;
                 const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_bill_rooms', syncRoom);
+                
+                addLog(`開始監聽房間: ${syncRoom}`);
+                
                 const unsubscribe = onSnapshot(docRef, (docSnap) => {
                     if (docSnap.exists()) {
                         const data = docSnap.data();
+                        addLog("收到雲端資料更新");
                         if (data.transactions) setTransactions(JSON.parse(data.transactions));
                         if (data.prices) setPrices(JSON.parse(data.prices));
                     } else if (isSyncing) {
-                        setDoc(docRef, { transactions: JSON.stringify(transactions), prices: JSON.stringify(prices) }, { merge: true });
+                        addLog("雲端無資料，嘗試初始化寫入...");
+                        setDoc(docRef, { transactions: JSON.stringify(transactions), prices: JSON.stringify(prices) }, { merge: true })
+                            .then(() => addLog("初始化寫入成功"))
+                            .catch(e => addLog(`寫入失敗: ${e.message}`));
                     }
                 }, (error) => {
                     console.error("Sync Error:", error);
+                    addLog(`同步錯誤: ${error.code}`);
                     if (error.code === 'permission-denied') {
-                        alert("⚠️ 同步失敗：權限不足。\n請到 Firebase Console -> Firestore Database -> Rules (規則)\n將規則改為 allow read, write: if true; (測試模式)");
+                        alert("⚠️ 同步失敗：權限不足。\n請到 Firebase Console -> Firestore Database -> Rules (規則)\n將規則改為 allow read, write: if true;");
                     }
                 });
                 return () => unsubscribe();
             }, [user, syncRoom, isSyncing]);
 
+            // 自動儲存邏輯
             useEffect(() => {
                 if (!user) return;
                 if (isFirebaseAvailable && isSyncing) {
@@ -665,9 +713,10 @@
                         try {
                             const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'stock_bill_rooms', syncRoom);
                             await setDoc(docRef, { transactions: JSON.stringify(transactions), prices: JSON.stringify(prices) }, { merge: true });
+                            // addLog("自動儲存成功"); // 避免刷屏，不顯示
                         } catch(e) { console.error(e); }
                     };
-                    const t = setTimeout(saveData, 1000);
+                    const t = setTimeout(saveData, 2000); // 延長 debounce 時間
                     return () => clearTimeout(t);
                 }
                 localStorage.setItem('stock_bill_transactions', JSON.stringify(transactions));
@@ -679,11 +728,13 @@
                     if (Array.isArray(data) && data.length > 0) {
                         const newTx = data.map(t => ({ ...t, id: Date.now() + Math.random() }));
                         setTransactions(prev => [...prev, ...newTx]);
-                    } else { alert("AI 未能辨識出交易，請確認圖片格式"); }
+                        addLog(`AI 新增 ${newTx.length} 筆交易`);
+                    }
                 } else {
                     if(typeof data === 'object') {
                         setPrices(prev => ({ ...prev, ...data }));
-                    } else { alert("AI 未能辨識出股價"); }
+                        addLog(`AI 更新股價完成`);
+                    }
                 }
             };
 
@@ -762,7 +813,7 @@
             return (
                 <div className="min-h-screen font-sans text-slate-900 pb-10 relative">
                     {editingId && <EditTransactionModal transaction={transactions.find(t => t.id === editingId)} onSave={(updatedTx) => {setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t)); setEditingId(null);}} onCancel={() => setEditingId(null)} />}
-                    {showCloudSettings && <CloudSettingsModal onClose={() => setShowCloudSettings(false)} onConnect={(room)=>{setSyncRoom(room);setIsSyncing(true);localStorage.setItem('stock_bill_fb_room',room);}} currentRoom={syncRoom} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
+                    {showCloudSettings && <CloudSettingsModal onClose={() => setShowCloudSettings(false)} onConnect={handleManualSync} currentRoom={syncRoom} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
                     {showAIModal && <SmartInputModal onClose={() => setShowAIModal(false)} onAnalyze={handleAIResult} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
                     {showSimpleTable && <SimpleHoldingsModal holdings={portfolio.holdings} onClose={() => setShowSimpleTable(false)} />}
 
@@ -778,12 +829,11 @@
                                 <div>
                                     <h1 className="text-6xl md:text-7xl font-extrabold text-blue-800 tracking-wide ml-8 drop-shadow-2xl" style={{ textShadow: '4px 4px 0px #fff' }}>股市比爾強</h1>
                                     <p className="text-lg font-bold text-white tracking-widest ml-9 mt-1 drop-shadow-md">產業趨勢挖掘者</p>
-                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v4.7 AI 旗艦版</p>
+                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v4.8 AI 旗艦版</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                                <div className="flex items-center gap-2">
-                                    {/* 同步狀態燈號 */}
+                                <div className="flex items-center gap-2 cursor-pointer" onClick={() => setShowCloudSettings(true)} title="點擊查看詳細診斷">
                                     <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold shadow-sm backdrop-blur ${isFirebaseAvailable ? 'bg-green-100/90 text-green-700 border border-green-300' : 'bg-red-100/90 text-red-700 border border-red-300'}`}>
                                         <div className={`w-2 h-2 rounded-full ${isFirebaseAvailable ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
                                         {isFirebaseAvailable ? '雲端同步中' : '單機模式'}
