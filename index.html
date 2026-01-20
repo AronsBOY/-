@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股市比爾強 v4.6 AI旗艦版</title>
+    <title>股市比爾強 v4.7 AI旗艦版</title>
     
     <!-- App 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -93,7 +93,7 @@
         const rawConfig = window.__firebase_config;
         let activeConfig = MANUAL_FIREBASE_CONFIG;
         
-        // 如果網頁環境有提供 config (例如在 Canvas 預覽)，且沒有手動設定，才使用預設
+        // 如果網頁環境有提供 config，且沒有手動設定，才使用預設
         if (!activeConfig && rawConfig) {
              try { activeConfig = JSON.parse(rawConfig); } catch(e){}
         }
@@ -107,7 +107,6 @@
                 auth = getAuth(app);
                 db = getFirestore(app);
                 appId = typeof window.__app_id !== 'undefined' ? window.__app_id : 'default-app-id';
-                // 如果是手動設定，projectId 就是 appId 的一部分或直接使用
                 if (!window.__app_id && activeConfig.projectId) appId = activeConfig.projectId;
                 
                 isFirebaseAvailable = true;
@@ -116,7 +115,7 @@
                 console.warn("⚠️ Firebase 初始化失敗，將使用單機模式。", e);
             }
         } else {
-            console.log("ℹ️ 未檢測到 Firebase Config，啟動單機模式 (資料僅存於本機 LocalStorage)");
+            console.log("ℹ️ 未檢測到 Firebase Config，啟動單機模式");
         }
 
         const { useState, useMemo, useEffect, useRef } = React;
@@ -165,17 +164,6 @@
             });
         };
 
-        const fileToGenerativePart = async (file) => {
-            const base64EncodedDataPromise = new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result.split(',')[1]);
-                reader.readAsDataURL(file);
-            });
-            return {
-                inlineData: { data: await base64EncodedDataPromise, mimeType: file.type },
-            };
-        };
-
         // --- 強力 JSON 解析器 ---
         const cleanAndParseJSON = (text) => {
             try { return JSON.parse(text); } 
@@ -207,7 +195,6 @@
                         currentCode = null;
                     }
                 });
-                // Fallback for simple format
                 if (Object.keys(result).length === 0) {
                     lines.forEach(line => {
                         const parts = line.trim().split(/\s+/);
@@ -591,7 +578,7 @@
                     if (isFirebaseAvailable) {
                         try {
                             // 修正邏輯：如果使用的是手動設定的 Config (MANUAL_FIREBASE_CONFIG)，
-                            // 則不應該使用 Canvas 環境提供的 __initial_auth_token (因為那是給預設專案用的)
+                            // 則不應該使用 Canvas 環境提供的 __initial_auth_token
                             const usingManualConfig = activeConfig === MANUAL_FIREBASE_CONFIG;
                             
                             if (!usingManualConfig && window.__initial_auth_token) {
@@ -661,6 +648,11 @@
                         if (data.prices) setPrices(JSON.parse(data.prices));
                     } else if (isSyncing) {
                         setDoc(docRef, { transactions: JSON.stringify(transactions), prices: JSON.stringify(prices) }, { merge: true });
+                    }
+                }, (error) => {
+                    console.error("Sync Error:", error);
+                    if (error.code === 'permission-denied') {
+                        alert("⚠️ 同步失敗：權限不足。\n請到 Firebase Console -> Firestore Database -> Rules (規則)\n將規則改為 allow read, write: if true; (測試模式)");
                     }
                 });
                 return () => unsubscribe();
@@ -786,12 +778,19 @@
                                 <div>
                                     <h1 className="text-6xl md:text-7xl font-extrabold text-blue-800 tracking-wide ml-8 drop-shadow-2xl" style={{ textShadow: '4px 4px 0px #fff' }}>股市比爾強</h1>
                                     <p className="text-lg font-bold text-white tracking-widest ml-9 mt-1 drop-shadow-md">產業趨勢挖掘者</p>
-                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v4.6.1 AI 旗艦版</p>
+                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v4.7 AI 旗艦版</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                                <div className="text-right text-slate-800 font-bold bg-white/40 backdrop-blur px-3 py-1 rounded-lg border border-slate-800/20 shadow-sm">
-                                    用500萬從2025/10/28日開始模擬操作
+                                <div className="flex items-center gap-2">
+                                    {/* 同步狀態燈號 */}
+                                    <div className={`flex items-center gap-1 px-3 py-1 rounded-full text-xs font-bold shadow-sm backdrop-blur ${isFirebaseAvailable ? 'bg-green-100/90 text-green-700 border border-green-300' : 'bg-red-100/90 text-red-700 border border-red-300'}`}>
+                                        <div className={`w-2 h-2 rounded-full ${isFirebaseAvailable ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                                        {isFirebaseAvailable ? '雲端同步中' : '單機模式'}
+                                    </div>
+                                    <div className="text-right text-slate-800 font-bold bg-white/40 backdrop-blur px-3 py-1 rounded-lg border border-slate-800/20 shadow-sm">
+                                        用500萬從2025/10/28日開始模擬操作
+                                    </div>
                                 </div>
                                 <div className="text-right text-orange-900 font-bold font-mono">
                                     <div className="text-xl">{currentTime.toLocaleTimeString()}</div>
