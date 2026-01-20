@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股市比爾強 v5.1 AI旗艦版</title>
+    <title>股市比爾強 v5.0 AI旗艦版</title>
     
     <!-- App 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -235,23 +235,23 @@
             '3189': { market: '上市', industry: '半導體業', highlight: 'ABF 載板', thoughts: 'ABF載板產業落底回升，AI晶片需求帶動。' },
         };
         
-        // 初始價格 (含前日收盤) - 若無資料則假設與今日相同
+        // 初始價格 (含前日收盤) - 已更新至 2026/1/19
         const INITIAL_PRICES = { 
-            '8358': { price: 260.0, prev: 240.0 }, 
-            '3081': { price: 618.0, prev: 600.0 }, 
-            '5284': { price: 270.5, prev: 275.0 }, 
-            '2360': { price: 856.0, prev: 850.0 }, 
-            '4722': { price: 168.0, prev: 165.0 }, 
-            '8996': { price: 577.0, prev: 570.0 }, 
-            '4931': { price: 173.0, prev: 175.0 }, 
-            '7853': { price: 113.5, prev: 115.0 }, 
-            '7828': { price: 530.0, prev: 530.0 }, 
-            '3017': { price: 1380.0, prev: 1370.0 }, 
-            '3324': { price: 0.0, prev: 0.0 }, 
-            '4971': { price: 292.5, prev: 290.0 }, 
-            '6788': { price: 338.5, prev: 340.0 }, 
-            '7751': { price: 838.0, prev: 830.0 }, 
-            '3189': { price: 175.5, prev: 180.0 } 
+            '8358': { price: 260.0, prev: 260.0 }, // 假設無變動
+            '3081': { price: 618.0, prev: 618.0 },
+            '5284': { price: 270.5, prev: 270.5 },
+            '2360': { price: 856.0, prev: 856.0 },
+            '4722': { price: 162.0, prev: 168.0 }, // 162 (跌)
+            '8996': { price: 577.0, prev: 577.0 },
+            '4931': { price: 173.0, prev: 173.0 },
+            '7853': { price: 113.5, prev: 113.5 },
+            '7828': { price: 530.0, prev: 530.0 },
+            '3017': { price: 1380.0, prev: 1380.0 },
+            '3324': { price: 0.0, prev: 0.0 },
+            '4971': { price: 338.5, prev: 292.5 }, // 338.5 (漲)
+            '6788': { price: 344.0, prev: 338.5 }, // 344 (漲)
+            '7751': { price: 820.0, prev: 838.0 }, // 820 (跌)
+            '3189': { price: 211.5, prev: 175.5 }  // 211.5 (大漲)
         };
 
         const INITIAL_TRANSACTIONS = [
@@ -262,7 +262,7 @@
             { id: 105, date: '2025/11/18', code: '8358', name: '金居', type: 'Buy', price: 227, qty: 1000, note: '' },
             { id: 106, date: '2025/12/02', code: '8358', name: '金居', type: 'Buy', price: 230, qty: 1000, note: '【新會員】' },
             { id: 107, date: '2025/12/03', code: '8358', name: '金居', type: 'Buy', price: 232, qty: 1000, note: '' },
-            { id: 108, date: '2025/12/10', code: '8358', name: '金居', type: 'Sell', price: 246.5, qty: 3500, note: '賣出一半' },
+            { id: 108, date: '2026/12/10', code: '8358', name: '金居', type: 'Sell', price: 246.5, qty: 3500, note: '賣出一半' },
             { id: 109, date: '2026/12/22', code: '8358', name: '金居', type: 'Sell', price: 260, qty: 3500, note: '賣出全數' },
             // 聯亞 (3081)
             { id: 201, date: '2025/10/30', code: '3081', name: '聯亞', type: 'Buy', price: 433.5, qty: 1000, note: '' },
@@ -338,10 +338,10 @@
 
         const formatNumber = (val) => new Intl.NumberFormat('zh-TW').format(Math.round(val));
         const formatMoney = (val) => `$${formatNumber(val)}`;
-        const formatDecimal = (val) => val.toFixed(2);
+        const formatDecimal = (val) => val ? val.toFixed(2) : '0.00';
         const formatPercent = (val) => `${(val * 100).toFixed(2)}%`;
         const getColor = (val) => val > 0 ? 'text-red-600' : val < 0 ? 'text-green-600' : 'text-slate-900';
-        const getPriceColor = (current, cost) => current > cost ? 'text-red-600' : current < cost ? 'text-green-600' : 'text-slate-800';
+        const getPriceColor = (current, ref) => current > ref ? 'text-red-600' : current < ref ? 'text-green-600' : 'text-slate-800';
 
         // --- Smart Input Modal ---
         const SmartInputModal = ({ onClose, onAnalyze, apiKey, setApiKey }) => {
@@ -350,32 +350,10 @@
             const [textInput, setTextInput] = useState('');
 
             const handleAnalyze = async () => {
-                if (!textInput.trim()) {
-                    alert("請貼上文字指令");
-                    return;
-                }
+                if (!textInput.trim()) { alert("請貼上文字指令"); return; }
+                if (!apiKey) { alert("請先輸入 Gemini API Key"); return; }
 
                 setIsAnalyzing(true);
-
-                // 1. 優先嘗試本地文字解析 (不需 API)
-                if (textInput.trim()) {
-                    const localResult = parseTextLocally(textInput, mode);
-                    if (localResult) {
-                        onAnalyze(localResult, mode);
-                        onClose();
-                        alert(`✅ 文字分析成功！(本地模式)`);
-                        setIsAnalyzing(false);
-                        return;
-                    }
-                }
-
-                // 2. 如果本地解析失敗，才嘗試使用 Gemini API
-                if (!apiKey) {
-                    alert("⚠️ 無法識別文字格式，請確認是否為支援的格式，或輸入 Gemini API Key 使用 AI 分析。");
-                    setIsAnalyzing(false);
-                    return;
-                }
-
                 try {
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
@@ -433,12 +411,11 @@
                 <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                     <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6 relative flex flex-col max-h-[90vh]">
                         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><Icon name="x"/></button>
-                        <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-slate-800"><Icon name="bot" className="text-orange-600"/> 智慧助理 (文字/AI)</h2>
+                        <h2 className="text-xl font-bold flex items-center gap-2 mb-4 text-slate-800"><Icon name="bot" className="text-orange-600"/> 智慧助理</h2>
                         
                         <div className="space-y-4 overflow-y-auto pr-2">
                             <div className="relative">
-                                <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Gemini API Key (純文字模式可不填)" className="w-full border rounded p-2 text-sm bg-slate-50"/>
-                                <span className="absolute right-2 top-2 text-[10px] text-slate-400 bg-white px-1">選填</span>
+                                <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Gemini API Key" className="w-full border rounded p-2 text-sm bg-slate-50"/>
                             </div>
                             
                             <div className="flex bg-slate-100 p-1 rounded-lg">
@@ -456,7 +433,7 @@
                             </div>
 
                             <button onClick={handleAnalyze} disabled={isAnalyzing} className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 mt-4 transition-all">
-                                {isAnalyzing ? '分析中...' : <><Icon name="zap"/> 開始分析</>}
+                                {isAnalyzing ? 'AI 分析中...' : <><Icon name="zap"/> 開始分析</>}
                             </button>
                         </div>
                     </div>
@@ -777,10 +754,13 @@
                     // 漲跌幅 (基於前日收盤)
                     const dailyChange = currentPrice - prevPrice;
                     const dailyChangePct = prevPrice > 0 ? (dailyChange / prevPrice) * 100 : 0;
+                    
+                    // 修正 ROI 計算：當 avgCost 為 0 時（例如新會員且無庫存），ROI 為 0
+                    const roi = h.avgCost > 0 ? ((currentPrice - h.avgCost) / h.avgCost) * 100 : 0;
 
                     const meta = metaData[h.code] || { market: '上市', industry: '未分類', thoughts: '' };
 
-                    return { ...h, currentPrice, prevPrice, dailyChange, dailyChangePct, marketValue, unrealizedPL, displayAvgCost, fundPercentage, meta };
+                    return { ...h, currentPrice, prevPrice, dailyChange, dailyChangePct, marketValue, unrealizedPL, displayAvgCost, fundPercentage, meta, roi };
                 }).filter(h => h.inventory > 0); 
 
                 // 整理已結算卡片資料
@@ -811,7 +791,7 @@
                     {/* ... (Modals 省略，與 v4.8 相同，僅需注意 AIGeminiModal 的 Prompt 已在上面更新) ... */}
                     {editingId && <EditTransactionModal transaction={transactions.find(t => t.id === editingId)} onSave={(updatedTx) => {setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t)); setEditingId(null);}} onCancel={() => setEditingId(null)} />}
                     {showCloudSettings && <CloudSettingsModal onClose={() => setShowCloudSettings(false)} onConnect={(room)=>{setSyncRoom(room);setIsSyncing(true);}} currentRoom={syncRoom} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
-                    {showAIModal && <SmartInputModal onClose={() => setShowAIModal(false)} onAnalyze={handleAIResult} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
+                    {showAIModal && <AIGeminiModal onClose={() => setShowAIModal(false)} onAnalyze={handleAIResult} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
                     {showSimpleTable && <SimpleHoldingsModal holdings={portfolio.holdings} onClose={() => setShowSimpleTable(false)} />}
 
                     <header className="bg-yellow-400 shadow-xl border-b-4 border-orange-500 sticky top-0 z-40 header-fun-pattern">
@@ -827,7 +807,7 @@
                                 <div>
                                     <h1 className="text-6xl md:text-7xl font-extrabold text-blue-800 tracking-wide ml-8 drop-shadow-2xl" style={{ textShadow: '4px 4px 0px #fff' }}>股市比爾強</h1>
                                     <p className="text-lg font-bold text-white tracking-widest ml-9 mt-1 drop-shadow-md">產業趨勢挖掘者</p>
-                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v5.1 AI 旗艦版</p>
+                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v5.0 AI 旗艦版</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
