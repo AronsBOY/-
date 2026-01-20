@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股市比爾強 v5.3 AI旗艦版</title>
+    <title>股市比爾強 v5.4 AI旗艦版</title>
     
     <!-- App 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -77,9 +77,6 @@
         import { getFirestore, doc, setDoc, onSnapshot, collection } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
         import { GoogleGenerativeAI } from "@google/generative-ai";
 
-        // ==================================================================================
-        // 🔴 您的 Firebase 設定 (已植入)
-        // ==================================================================================
         const MANUAL_FIREBASE_CONFIG = {
             apiKey: "AIzaSyBHZCCTR2pcISXTcFlKAQw-qCuss3tuVn4",
             authDomain: "billjohnloveu.firebaseapp.com",
@@ -377,7 +374,7 @@
                 setIsAnalyzing(true);
                 try {
                     const genAI = new GoogleGenerativeAI(apiKey);
-                    const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash-preview-09-2025" });
+                    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
                     
                     let prompt = "";
                     
@@ -436,8 +433,7 @@
                         
                         <div className="space-y-4 overflow-y-auto pr-2">
                             <div className="relative">
-                                <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Gemini API Key (已移除預設值)" className="w-full border rounded p-2 text-sm bg-slate-50"/>
-                                <span className="absolute right-2 top-2 text-[10px] text-slate-400 bg-white px-1">請填入新 Key</span>
+                                <input type="password" value={apiKey} onChange={(e) => setApiKey(e.target.value)} placeholder="Gemini API Key" className="w-full border rounded p-2 text-sm bg-slate-50"/>
                             </div>
                             
                             <div className="flex bg-slate-100 p-1 rounded-lg">
@@ -478,7 +474,7 @@
             // 匯出備份
             const handleExport = () => {
                 const backupData = {
-                    version: "5.3",
+                    version: "5.4",
                     timestamp: new Date().toISOString(),
                     transactions: data.transactions,
                     prices: data.prices,
@@ -641,7 +637,7 @@
             const [metaData, setMetaData] = useState(INITIAL_META_DATA);
 
             const [userAvatar, setUserAvatar] = useState(null);
-            const [geminiApiKey, setGeminiApiKey] = useState("");
+            const [geminiApiKey, setGeminiApiKey] = useState("AIzaSyDVIFDMODO28W2hW3Cfv7egUyO4LApzR50");
             const [syncRoom, setSyncRoom] = useState("default");
             const [isSyncing, setIsSyncing] = useState(false); 
             const [showCloudSettings, setShowCloudSettings] = useState(false);
@@ -852,7 +848,26 @@
 
                     const meta = metaData[h.code] || { market: '上市', industry: '未分類', thoughts: '' };
 
-                    return { ...h, currentPrice, prevPrice, dailyChange, dailyChangePct, marketValue, unrealizedPL, displayAvgCost, fundPercentage, meta, roi };
+                    // 自動抓取最新日期 (今天) 與 前日日期
+                    const todayDate = new Date();
+                    const yesterdayDate = new Date(todayDate);
+                    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+
+                    return { 
+                        ...h, 
+                        currentPrice, 
+                        prevPrice, 
+                        dailyChange, 
+                        dailyChangePct, 
+                        marketValue, 
+                        unrealizedPL, 
+                        displayAvgCost, 
+                        fundPercentage, 
+                        meta, 
+                        roi,
+                        todayDateStr: todayDate.toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'}),
+                        yesterdayDateStr: yesterdayDate.toLocaleDateString('zh-TW', {month:'numeric', day:'numeric'})
+                    };
                 }).filter(h => h.inventory > 0); 
 
                 // 整理已結算卡片資料
@@ -899,7 +914,7 @@
                                 <div>
                                     <h1 className="text-6xl md:text-7xl font-extrabold text-blue-800 tracking-wide ml-8 drop-shadow-2xl" style={{ textShadow: '4px 4px 0px #fff' }}>股市比爾強</h1>
                                     <p className="text-lg font-bold text-white tracking-widest ml-9 mt-1 drop-shadow-md">產業趨勢挖掘者</p>
-                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v5.3 AI 旗艦版</p>
+                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v5.4 AI 旗艦版</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
@@ -982,12 +997,15 @@
                                                 
                                                 {/* Price Display */}
                                                 <div className="text-right" title="點擊修改收盤價" onClick={(e)=>{e.stopPropagation(); const p=prompt('輸入新收盤價',stock.currentPrice); if(p) setPrices(prev=>({...prev,[stock.code]:{price:parseFloat(p), prev: stock.prevPrice}}));}}>
-                                                    <div className="text-[10px] text-slate-400 mb-0.5 flex items-center justify-end gap-1">收盤價 <span className="font-mono">{currentTime.toLocaleDateString()}</span></div>
+                                                    <div className="text-[10px] text-slate-400 mb-0.5 flex items-center justify-end gap-1 font-bold">今日({stock.todayDateStr})收盤</div>
                                                     <div className={`text-3xl font-black font-mono leading-none ${getPriceColor(stock.currentPrice, stock.prevPrice)}`}>
                                                         {stock.currentPrice}
                                                     </div>
                                                     <div className={`text-xs font-bold mt-1 flex justify-end gap-1 ${getColor(stock.dailyChange)}`}>
                                                         {stock.dailyChange > 0 ? '▲' : '▼'} {Math.abs(stock.dailyChange)} ({Math.abs(stock.dailyChangePct).toFixed(2)}%)
+                                                    </div>
+                                                    <div className="text-[10px] text-slate-300 mt-1 flex items-center justify-end gap-1 hover:text-blue-500" onClick={(e)=>{e.stopPropagation(); const p=prompt('修正前日收盤價',stock.prevPrice); if(p) setPrices(prev=>({...prev,[stock.code]:{price: stock.currentPrice, prev:parseFloat(p)}}));}}>
+                                                        前日({stock.yesterdayDateStr})收盤: {stock.prevPrice}
                                                     </div>
                                                 </div>
                                             </div>
