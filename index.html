@@ -93,7 +93,7 @@
         const rawConfig = window.__firebase_config;
         let activeConfig = MANUAL_FIREBASE_CONFIG;
         
-        // 如果網頁環境有提供 config (例如在 Canvas 預覽)，優先使用，否則使用手動設定
+        // 如果網頁環境有提供 config (例如在 Canvas 預覽)，且沒有手動設定，才使用預設
         if (!activeConfig && rawConfig) {
              try { activeConfig = JSON.parse(rawConfig); } catch(e){}
         }
@@ -589,9 +589,30 @@
             useEffect(() => {
                 const initAuth = async () => {
                     if (isFirebaseAvailable) {
-                        if (window.__initial_auth_token) await signInWithCustomToken(auth, window.__initial_auth_token);
-                        else await signInAnonymously(auth);
-                        onAuthStateChanged(auth, setUser);
+                        try {
+                            // 修正邏輯：如果使用的是手動設定的 Config (MANUAL_FIREBASE_CONFIG)，
+                            // 則不應該使用 Canvas 環境提供的 __initial_auth_token (因為那是給預設專案用的)
+                            const usingManualConfig = activeConfig === MANUAL_FIREBASE_CONFIG;
+                            
+                            if (!usingManualConfig && window.__initial_auth_token) {
+                                await signInWithCustomToken(auth, window.__initial_auth_token);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                            
+                            onAuthStateChanged(auth, setUser);
+                        } catch (error) {
+                            console.error("Firebase Auth Error:", error);
+                            let errorMsg = "雲端連線失敗，切換至單機模式。";
+                            if (error.code === 'auth/operation-not-allowed') {
+                                errorMsg = "⚠️ 請至 Firebase Console 開啟「匿名登入 (Anonymous Auth)」功能，否則無法同步。";
+                            } else if (error.code === 'auth/configuration-not-found') {
+                                errorMsg = "⚠️ Firebase 設定錯誤，請檢查 Console 的 Authentication 設定。";
+                            }
+                            alert(errorMsg);
+                            // Fallback
+                            setUser({ uid: 'local-user' });
+                        }
                     } else {
                         setUser({ uid: 'local-user' });
                     }
@@ -765,7 +786,7 @@
                                 <div>
                                     <h1 className="text-6xl md:text-7xl font-extrabold text-blue-800 tracking-wide ml-8 drop-shadow-2xl" style={{ textShadow: '4px 4px 0px #fff' }}>股市比爾強</h1>
                                     <p className="text-lg font-bold text-white tracking-widest ml-9 mt-1 drop-shadow-md">產業趨勢挖掘者</p>
-                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v4.6 AI 旗艦版</p>
+                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v4.6.1 AI 旗艦版</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
