@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>股市比爾強 v3.1 AI旗艦版</title>
+    <title>股市比爾強 v3.8 AI旗艦版</title>
     
     <!-- App 設定 -->
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -36,11 +36,25 @@
         html, body { overscroll-behavior-y: none; }
         .glass-panel { background: rgba(255, 255, 255, 0.9); backdrop-filter: blur(10px); }
         
+        /* 股市背景淺影 (Body) */
+        .bg-kline-pattern {
+            background-color: #facc15;
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M10 50v-10h2v10h-2zm0 20v-10h2v10h-2zm10-30v-15h2v15h-2zm0 25v-15h2v15h-2zm10 10v-20h2v20h-2zm0-30v-10h2v10h-2zm10 20v-25h2v25h-2zm0 15v-5h2v5h-2zm10-40v-10h2v10h-2zm0 45v-25h2v25h-2zm10-15v-10h2v10h-2zm0 20v-5h2v5h-2zm10-40v-5h2v5h-2zm0 35v-20h2v20h-2z' fill='%23ffffff' fill-opacity='0.15' fill-rule='evenodd'/%3E%3C/svg%3E");
+        }
+
+        /* 頂部趣味背景：股市很好玩 */
+        .header-fun-pattern {
+            background-color: #fbbf24;
+            background-image: radial-gradient(circle at 10% 20%, rgba(255,255,255,0.2) 0%, transparent 20%),
+                              radial-gradient(circle at 90% 80%, rgba(255,255,255,0.2) 0%, transparent 20%),
+                              url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.15'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+        
         /* 錯誤提示遮罩 */
         #local-file-error { display: none; }
     </style>
 </head>
-<body class="bg-yellow-400 select-none text-slate-800">
+<body class="bg-kline-pattern select-none text-slate-800">
     <div id="root"></div>
 
     <!-- 本地檔案開啟錯誤提示 -->
@@ -58,7 +72,6 @@
     </div>
 
     <script>
-        // 檢測是否為 file:// 協議
         if (window.location.protocol === 'file:') {
             document.getElementById('local-file-error').style.display = 'flex';
         }
@@ -143,32 +156,158 @@
             };
         };
 
+        // --- 卡片主題助手 (新設計) ---
+        const getMarketStyle = (market) => {
+            switch (market) {
+                case '上市': return { 
+                    badge: 'bg-blue-600 text-white', 
+                    border: 'border-blue-600', 
+                    text: 'text-blue-700',
+                    bg: 'bg-blue-50'
+                };
+                case '上櫃': return { 
+                    badge: 'bg-emerald-600 text-white', 
+                    border: 'border-emerald-600', 
+                    text: 'text-emerald-700',
+                    bg: 'bg-emerald-50'
+                };
+                case '興櫃': return { 
+                    badge: 'bg-rose-500 text-white', 
+                    border: 'border-rose-500', 
+                    text: 'text-rose-700',
+                    bg: 'bg-rose-50'
+                };
+                default: return { 
+                    badge: 'bg-slate-600 text-white', 
+                    border: 'border-slate-600', 
+                    text: 'text-slate-700',
+                    bg: 'bg-slate-50'
+                };
+            }
+        };
+
         // --- 初始資料 ---
         const INITIAL_CAPITAL = 5000000;
         const INITIAL_META_DATA = {
-            '8358': { market: '上櫃', industry: '電子零組件', highlight: '銅箔基板需求強勁，伺服器升級受惠。' },
-            '3081': { market: '上櫃', industry: '通信網路', highlight: '光通訊磊晶片領先者，矽光子題材。' },
-            '5284': { market: '上市', industry: '航太工業', highlight: '伺服器機殼與航太零組件，業績創高。' },
-            '2360': { market: '上市', industry: '其他電子', highlight: '精密量測儀器龍頭，半導體測試需求增。' },
-            '4722': { market: '上櫃', industry: '化學工業', highlight: '光固化材料龍頭，CoWoS 關鍵化學品供應商。' },
-            '8996': { market: '上市', industry: '電機機械', highlight: '熱管理專家，液冷散熱切入資料中心。' },
-            '4931': { market: '上市', industry: '電腦周邊', highlight: '鋰電池模組，BBU 備援電池需求爆發。' },
-            '7853': { market: '興櫃', industry: '半導體業', highlight: '半導體 AOI 檢測設備，先進封裝需求。' },
-            '7828': { market: '興櫃', industry: '軟體服務', highlight: '數位轉型雲端服務商，資安需求強勁。' },
-            '3017': { market: '上市', industry: '電腦周邊', highlight: '散熱模組大廠，AI 伺服器散熱解決方案。' },
-            '3324': { market: '上市', industry: '電腦周邊', highlight: '散熱解決方案，水冷板出貨放量。' },
-            '4971': { market: '上櫃', industry: '半導體業', highlight: 'MBE 砷化鎵磊晶全球龍頭，國防與航太需求。' },
-            '6788': { market: '上櫃', industry: '半導體業', highlight: '晶圓代工 AMC 設備供應商，先進製程擴產。' },
-            '7751': { market: '興櫃', industry: '半導體設備', highlight: '先進封裝檢測，CoWoS 訂單能見度高。' },
-            '3189': { market: '上市', industry: '半導體業', highlight: 'ABF 載板復甦，HPC 與 AI 晶片需求強。' },
+            '8358': { market: '上櫃', industry: '電子零組件', highlight: '銅箔基板需求強勁，伺服器升級受惠。', thoughts: '銅箔基板需求強勁，AI伺服器帶動高階產品出貨。' },
+            '3081': { market: '上櫃', industry: '通信網路', highlight: '光通訊磊晶片領先者，矽光子題材。', thoughts: '矽光子為未來趨勢，持續看好長線發展。' },
+            '5284': { market: '上市', industry: '航太工業', highlight: '伺服器機殼與航太零組件，業績創高。', thoughts: '航太復甦與伺服器雙引擎，營收可期。' },
+            '2360': { market: '上市', industry: '其他電子', highlight: '精密量測儀器龍頭，半導體測試需求增。', thoughts: '先進封裝檢測需求大增，龍頭地位穩固。' },
+            '4722': { market: '上櫃', industry: '化學工業', highlight: '光固化材料龍頭，CoWoS 關鍵化學品供應商。', thoughts: '切入CoWoS供應鏈，評價有重估空間。' },
+            '8996': { market: '上市', industry: '電機機械', highlight: '熱管理專家，液冷散熱切入資料中心。', thoughts: '液冷散熱是AI伺服器標配，營收爆發。' },
+            '4931': { market: '上市', industry: '電腦周邊', highlight: '鋰電池模組，BBU 備援電池需求爆發。', thoughts: 'BBU需求因AI伺服器而起，短線動能強。' },
+            '7853': { market: '興櫃', industry: '半導體業', highlight: '半導體 AOI 檢測設備，先進封裝需求。', thoughts: '興櫃潛力股，受惠先進封裝擴產。' },
+            '7828': { market: '興櫃', industry: '軟體服務', highlight: '數位轉型雲端服務商，資安需求強勁。', thoughts: '數位轉型趨勢不變，資安為剛性需求。' },
+            '3017': { market: '上市', industry: '電腦周邊', highlight: '散熱模組大廠，AI 伺服器散熱解決方案。', thoughts: '3D VC與水冷板出貨順暢，獲利優於預期。' },
+            '3324': { market: '上市', industry: '電腦周邊', highlight: '散熱解決方案，水冷板出貨放量。', thoughts: '水冷板市佔率高，為主要受惠者。' },
+            '4971': { market: '上櫃', industry: '半導體業', highlight: 'MBE 砷化鎵磊晶全球龍頭，國防與航太需求。', thoughts: '國防訂單穩定，加上衛星通訊需求。' },
+            '6788': { market: '上櫃', industry: '半導體業', highlight: '晶圓代工 AMC 設備供應商，先進製程擴產。', thoughts: '隨著晶圓廠擴廠，微污染防治需求增。' },
+            '7751': { market: '興櫃', industry: '半導體設備', highlight: '先進封裝檢測，CoWoS 訂單能見度高。', thoughts: 'CoWoS擴產設備交期長，訂單滿手。' },
+            '3189': { market: '上市', industry: '半導體業', highlight: 'ABF 載板復甦，HPC 與 AI 晶片需求強。', thoughts: 'ABF載板產業落底回升，AI晶片需求帶動。' },
         };
-        const INITIAL_PRICES = { '8358': 260.0, '3081': 618.0, '5284': 270.5, '2360': 856.0, '4722': 165.0, '8996': 577.0, '4931': 173.0, '7853': 113.5, '7828': 530.0, '3017': 1380.0, '3324': 710.0, '4971': 308.0, '6788': 350.0, '7751': 861.0, '3189': 192.5 };
+        
+        const INITIAL_PRICES = { 
+            '8358': 260.0, '3081': 618.0, '5284': 270.5, '2360': 856.0, 
+            '4722': 168.0, '8996': 577.0, '4931': 173.0, '7853': 113.5, 
+            '7828': 530.0, '3017': 1380.0, '3324': 0.0, '4971': 292.5, 
+            '6788': 338.5, '7751': 838.0, '3189': 175.5 
+        };
+
         const INITIAL_TRANSACTIONS = [
-             { id: 101, date: '2025/10/28', code: '8358', name: '金居', type: 'Buy', price: 224.0, qty: 1000, note: '建立持股' },
-             { id: 201, date: '2025/10/30', code: '3081', name: '聯亞', type: 'Buy', price: 433.5, qty: 1000, note: '建立持股' },
-             { id: 301, date: '2025/11/07', code: '5284', name: 'JPP-KY', type: 'Buy', price: 296.5, qty: 1000, note: '建立持股' },
-             { id: 401, date: '2025/11/02', code: '2360', name: '致茂', type: 'Buy', price: 776.5, qty: 1000, note: '【新會員】建立持股' },
-             { id: 501, date: '2025/12/15', code: '4722', name: '國精化', type: 'Buy', price: 188.5, qty: 1000, note: '建立持股' },
+            // 金居 (8358)
+            { id: 101, date: '2025/10/28', code: '8358', name: '金居', type: 'Buy', price: 224, qty: 1000, note: '' },
+            { id: 102, date: '2025/10/29', code: '8358', name: '金居', type: 'Buy', price: 228, qty: 1000, note: '' },
+            { id: 103, date: '2025/11/04', code: '8358', name: '金居', type: 'Buy', price: 231.5, qty: 1000, note: '' },
+            { id: 104, date: '2025/11/13', code: '8358', name: '金居', type: 'Buy', price: 229, qty: 1000, note: '【新會員】價格暫估' }, 
+            { id: 105, date: '2025/11/18', code: '8358', name: '金居', type: 'Buy', price: 227, qty: 1000, note: '' },
+            { id: 106, date: '2025/12/02', code: '8358', name: '金居', type: 'Buy', price: 230, qty: 1000, note: '【新會員】' },
+            { id: 107, date: '2025/12/03', code: '8358', name: '金居', type: 'Buy', price: 232, qty: 1000, note: '' },
+            { id: 108, date: '2025/12/10', code: '8358', name: '金居', type: 'Sell', price: 246.5, qty: 3500, note: '賣出一半' },
+            { id: 109, date: '2025/12/22', code: '8358', name: '金居', type: 'Sell', price: 260, qty: 3500, note: '賣出全數' },
+
+            // 聯亞 (3081)
+            { id: 201, date: '2025/10/30', code: '3081', name: '聯亞', type: 'Buy', price: 433.5, qty: 1000, note: '' },
+            { id: 202, date: '2025/10/31', code: '3081', name: '聯亞', type: 'Buy', price: 433.5, qty: 1000, note: '' },
+            { id: 203, date: '2025/11/18', code: '3081', name: '聯亞', type: 'Buy', price: 447, qty: 1000, note: '' },
+            { id: 204, date: '2025/12/17', code: '3081', name: '聯亞', type: 'Sell', price: 602, qty: 1500, note: '賣出一半 (修正價)' },
+            { id: 205, date: '2026/01/05', code: '3081', name: '聯亞', type: 'Sell', price: 618, qty: 1500, note: '賣出全數 (修正價)' },
+
+            // JPP-KY (5284)
+            { id: 301, date: '2025/11/07', code: '5284', name: 'JPP-KY', type: 'Buy', price: 296.5, qty: 1000, note: '' },
+            { id: 302, date: '2025/11/13', code: '5284', name: 'JPP-KY', type: 'Buy', price: 0, qty: 1000, note: '【新會員】需補價' },
+            { id: 303, date: '2025/11/18', code: '5284', name: 'JPP-KY', type: 'Buy', price: 282, qty: 1000, note: '' },
+            { id: 304, date: '2025/11/26', code: '5284', name: 'JPP-KY', type: 'Buy', price: 290, qty: 1000, note: '【新會員】' },
+            { id: 305, date: '2025/11/28', code: '5284', name: 'JPP-KY', type: 'Buy', price: 285, qty: 1000, note: '【新會員】' },
+            { id: 306, date: '2025/12/02', code: '5284', name: 'JPP-KY', type: 'Buy', price: 310, qty: 1000, note: '【新會員】' },
+            { id: 307, date: '2025/12/03', code: '5284', name: 'JPP-KY', type: 'Buy', price: 306, qty: 1000, note: '' },
+            { id: 308, date: '2025/12/15', code: '5284', name: 'JPP-KY', type: 'Buy', price: 298, qty: 1000, note: '' },
+            { id: 309, date: '2025/12/17', code: '5284', name: 'JPP-KY', type: 'Buy', price: 300, qty: 1000, note: '' },
+            { id: 310, date: '2025/12/22', code: '5284', name: 'JPP-KY', type: 'Buy', price: 290, qty: 1000, note: '' },
+            { id: 311, date: '2025/12/24', code: '5284', name: 'JPP-KY', type: 'Buy', price: 285, qty: 1000, note: '' },
+            { id: 312, date: '2026/01/12', code: '5284', name: 'JPP-KY', type: 'Sell', price: 270.5, qty: 11000, note: '賣出全數' },
+
+            // 致茂 (2360)
+            { id: 401, date: '2025/11/02', code: '2360', name: '致茂', type: 'Buy', price: 776.5, qty: 1000, note: '【新會員】' },
+            { id: 402, date: '2025/11/17', code: '2360', name: '致茂', type: 'Buy', price: 785, qty: 1000, note: '' },
+            { id: 403, date: '2025/11/28', code: '2360', name: '致茂', type: 'Buy', price: 814, qty: 1000, note: '【新會員】' },
+            { id: 404, date: '2025/12/15', code: '2360', name: '致茂', type: 'Buy', price: 765, qty: 1000, note: '' },
+            { id: 405, date: '2026/01/05', code: '2360', name: '致茂', type: 'Sell', price: 856, qty: 4000, note: '賣出全數' },
+
+            // 國精化 (4722)
+            { id: 501, date: '2025/12/15', code: '4722', name: '國精化', type: 'Buy', price: 188.5, qty: 1000, note: '' },
+            { id: 502, date: '2025/12/16', code: '4722', name: '國精化', type: 'Buy', price: 185, qty: 1000, note: '' },
+            { id: 503, date: '2025/12/17', code: '4722', name: '國精化', type: 'Buy', price: 182, qty: 1000, note: '' },
+            { id: 504, date: '2025/12/19', code: '4722', name: '國精化', type: 'Buy', price: 164, qty: 1000, note: '' },
+            { id: 505, date: '2025/12/24', code: '4722', name: '國精化', type: 'Buy', price: 175, qty: 1000, note: '【新會員】' },
+            { id: 506, date: '2025/12/26', code: '4722', name: '國精化', type: 'Buy', price: 168, qty: 1000, note: '' },
+            { id: 507, date: '2026/01/13', code: '4722', name: '國精化', type: 'Buy', price: 168, qty: 1000, note: '【新會員】' },
+
+            // 高力 (8996)
+            { id: 601, date: '2025/12/23', code: '8996', name: '高力', type: 'Buy', price: 545, qty: 1000, note: '' },
+            { id: 602, date: '2026/01/07', code: '8996', name: '高力', type: 'Sell', price: 577, qty: 1000, note: '賣出全數' },
+
+            // 新盛力 (4931)
+            { id: 701, date: '2025/12/29', code: '4931', name: '新盛力', type: 'Buy', price: 178, qty: 1000, note: '' },
+            { id: 702, date: '2026/01/06', code: '4931', name: '新盛力', type: 'Buy', price: 175, qty: 1000, note: '【新會員】' },
+            { id: 703, date: '2026/01/08', code: '4931', name: '新盛力', type: 'Sell', price: 173, qty: 2000, note: '賣出全數' },
+
+            // 政美應用 (7853)
+            { id: 801, date: '2026/01/02', code: '7853', name: '政美應用', type: 'Buy', price: 128, qty: 1000, note: '' },
+            { id: 802, date: '2026/01/05', code: '7853', name: '政美應用', type: 'Buy', price: 128, qty: 1000, note: '' },
+            { id: 803, date: '2026/01/06', code: '7853', name: '政美應用', type: 'Buy', price: 128, qty: 1000, note: '' },
+            { id: 804, date: '2026/01/12', code: '7853', name: '政美應用', type: 'Sell', price: 113.5, qty: 3000, note: '賣出全數' },
+
+            // 創新服務 (7828)
+            { id: 901, date: '2026/01/05', code: '7828', name: '創新服務', type: 'Buy', price: 540, qty: 1000, note: '' },
+            { id: 902, date: '2026/01/08', code: '7828', name: '創新服務', type: 'Sell', price: 530, qty: 1000, note: '賣出全數' },
+
+            // 奇鋐 (3017)
+            { id: 1001, date: '2026/01/07', code: '3017', name: '奇鋐', type: 'Buy', price: 1350, qty: 1000, note: '' },
+            { id: 1002, date: '2026/01/08', code: '3017', name: '奇鋐', type: 'Buy', price: 1350, qty: 1000, note: '' },
+            { id: 1003, date: '2026/01/14', code: '3017', name: '奇鋐', type: 'Buy', price: 1360, qty: 1000, note: '價格取中間值' },
+            { id: 1004, date: '2026/01/15', code: '3017', name: '奇鋐', type: 'Sell', price: 1380, qty: 3000, note: '賣出全數' },
+
+            // 雙鴻 (3324)
+            { id: 1101, date: '2026/01/07', code: '3324', name: '雙鴻', type: 'Buy', price: 0, qty: 1000, note: '【需補價】' },
+            { id: 1102, date: '2026/01/08', code: '3324', name: '雙鴻', type: 'Buy', price: 0, qty: 1000, note: '【需補價】' },
+            { id: 1103, date: '2026/01/15', code: '3324', name: '雙鴻', type: 'Sell', price: 0, qty: 2000, note: '【需補價】賣出全數' },
+
+            // IET-KY (4971)
+            { id: 1201, date: '2026/01/12', code: '4971', name: 'IET-KY', type: 'Buy', price: 309, qty: 1000, note: '' },
+            { id: 1202, date: '2026/01/13', code: '4971', name: 'IET-KY', type: 'Buy', price: 295, qty: 1000, note: '【新會員】' },
+            { id: 1203, date: '2026/01/13', code: '4971', name: 'IET-KY', type: 'Buy', price: 292.5, qty: 1000, note: '' },
+
+            // 華景電 (6788)
+            { id: 1301, date: '2026/01/12', code: '6788', name: '華景電', type: 'Buy', price: 353.5, qty: 1000, note: '' },
+            { id: 1302, date: '2026/01/13', code: '6788', name: '華景電', type: 'Buy', price: 340, qty: 1000, note: '【新會員】' },
+            { id: 1303, date: '2026/01/13', code: '6788', name: '華景電', type: 'Buy', price: 338.5, qty: 1000, note: '' },
+
+            // 竑騰 (7751)
+            { id: 1401, date: '2026/01/09', code: '7751', name: '竑騰', type: 'Buy', price: 722, qty: 1000, note: '' },
+            { id: 1402, date: '2026/01/15', code: '7751', name: '竑騰', type: 'Buy', price: 838, qty: 1000, note: '' },
+
+            // 景碩 (3189)
+            { id: 1501, date: '2026/01/15', code: '3189', name: '景碩', type: 'Buy', price: 175.5, qty: 1000, note: '' },
         ];
 
         const formatNumber = (val) => new Intl.NumberFormat('zh-TW').format(Math.round(val));
@@ -176,6 +315,7 @@
         const formatDecimal = (val) => val.toFixed(2);
         const formatPercent = (val) => `${(val * 100).toFixed(2)}%`;
         const getColor = (val) => val > 0 ? 'text-red-600' : val < 0 ? 'text-green-600' : 'text-slate-900';
+        const getPriceColor = (current, cost) => current > cost ? 'text-red-600' : current < cost ? 'text-green-600' : 'text-slate-800';
 
         // --- AI Modal ---
         const AIGeminiModal = ({ onClose, onAnalyze, apiKey, setApiKey }) => {
@@ -196,8 +336,8 @@
                     let prompt = "";
                     if (mode === 'transactions') {
                         prompt = `你是一個股票交易助手。請分析這張截圖中的股票交易紀錄。
-                        請提取：date(YYYY/MM/DD), code, name, type(Buy/Sell), price(數值), qty(數值), note("AI識別")。
-                        回傳純 JSON Array。範例：[{"date":"2025/01/01", "code":"2330", "name":"台積電", "type":"Buy", "price":1000, "qty":1000}]。不要 Markdown。`;
+                        請提取：date(YYYY/MM/DD), code, name, type(Buy/Sell), price(數值), qty(數值), note(若有'新會員'字樣請標註, 並嘗試提取'葉宇乘的話'心得筆記)。
+                        回傳純 JSON Array。範例：[{"date":"2025/01/01", "code":"2330", "name":"台積電", "type":"Buy", "price":1000, "qty":1000, "note":"新會員, 看好未來趨勢"}]。不要 Markdown。`;
                     } else {
                         prompt = `請辨識截圖中的股票現價。Key為代號，Value為價格。
                         回傳純 JSON Object。範例：{"2330": 1050, "2317": 200}。不要 Markdown。`;
@@ -256,12 +396,12 @@
             );
         };
 
-        // --- Simple Holdings Modal (New!) ---
+        // --- Simple Holdings Modal ---
         const SimpleHoldingsModal = ({ holdings, onClose }) => (
             <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
                 <div className="bg-white rounded-2xl w-full max-w-4xl shadow-2xl p-6 relative max-h-[90vh] flex flex-col">
                     <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600"><Icon name="x"/></button>
-                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Icon name="table" className="text-blue-600"/> 簡易持股表</h2>
+                    <h2 className="text-2xl font-bold mb-6 flex items-center gap-2"><Icon name="table" className="text-orange-600"/> 簡易持股表</h2>
                     <div className="overflow-auto flex-1">
                         <table className="w-full text-left border-collapse min-w-[500px]">
                             <thead className="bg-slate-100 text-slate-600 sticky top-0">
@@ -274,18 +414,21 @@
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-100 text-slate-800">
-                                {holdings.map((stock, index) => (
-                                    <tr key={stock.code} className="hover:bg-blue-50 transition-colors">
-                                        <td className="p-4 font-bold text-slate-500">{index + 1}</td>
-                                        <td className="p-4 font-mono font-bold text-lg">{stock.code}</td>
-                                        <td className="p-4 font-bold text-xl">{stock.name}</td>
-                                        <td className="p-4 text-right font-mono font-bold text-lg">{formatDecimal(stock.avgCost)}</td>
-                                        <td className="p-4 text-right">
-                                            <span className="font-bold text-xl">{Math.floor(stock.inventory / 1000)}</span> <span className="text-sm text-slate-500 mr-2">張</span>
-                                            {stock.inventory % 1000 > 0 && <span className="text-slate-500 font-mono">({stock.inventory % 1000} 股)</span>}
-                                        </td>
-                                    </tr>
-                                ))}
+                                {holdings.map((stock, index) => {
+                                    const marketStyle = getMarketStyle(stock.meta.market);
+                                    return (
+                                        <tr key={stock.code} className="hover:bg-slate-50 transition-colors">
+                                            <td className="p-4 font-bold text-slate-500">{index + 1}</td>
+                                            <td className="p-4 font-mono font-bold text-lg">{stock.code}</td>
+                                            <td className="p-4 font-bold text-xl">{stock.name}</td>
+                                            <td className="p-4 text-right font-mono font-bold text-lg">{formatDecimal(stock.displayAvgCost)}</td>
+                                            <td className="p-4 text-right">
+                                                <span className="font-bold text-xl">{Math.floor(stock.inventory / 1000)}</span> <span className="text-sm text-slate-500 mr-2">張</span>
+                                                {stock.inventory % 1000 > 0 && <span className="text-slate-500 font-mono">({stock.inventory % 1000} 股)</span>}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
                                 {holdings.length === 0 && <tr><td colSpan="5" className="p-12 text-center text-slate-400 text-lg font-bold">目前無持股，請建立倉位！</td></tr>}
                             </tbody>
                         </table>
@@ -328,13 +471,12 @@
             const [transactions, setTransactions] = useState(INITIAL_TRANSACTIONS);
             const [prices, setPrices] = useState(INITIAL_PRICES);
             const [userAvatar, setUserAvatar] = useState(null);
-            // Updated with User's requested API Key
             const [geminiApiKey, setGeminiApiKey] = useState("AIzaSyDVIFDMODO28W2hW3Cfv7egUyO4LApzR50");
             const [syncRoom, setSyncRoom] = useState("default");
             const [isSyncing, setIsSyncing] = useState(false); 
             const [showCloudSettings, setShowCloudSettings] = useState(false);
             const [showAIModal, setShowAIModal] = useState(false);
-            const [showSimpleTable, setShowSimpleTable] = useState(false); // New state for Simple Table
+            const [showSimpleTable, setShowSimpleTable] = useState(false); 
             const [editingId, setEditingId] = useState(null);
             const [selectedStockCode, setSelectedStockCode] = useState(null);
             const [currentTime, setCurrentTime] = useState(new Date());
@@ -352,7 +494,7 @@
 
             useEffect(() => {
                 const savedKey = localStorage.getItem('stock_bill_gemini_key');
-                if (savedKey) setGeminiApiKey(savedKey); // If local storage has one, it might overwrite the default, but user can reset it
+                if (savedKey) setGeminiApiKey(savedKey); 
                 const savedRoom = localStorage.getItem('stock_bill_fb_room');
                 if (savedRoom) { setSyncRoom(savedRoom); setIsSyncing(true); }
             }, []);
@@ -407,20 +549,38 @@
                 const sortedTrans = [...transactions].sort((a, b) => new Date(a.date) - new Date(b.date));
 
                 sortedTrans.forEach(t => {
-                    if (!holdingsMap[t.code]) holdingsMap[t.code] = { code: t.code, name: t.name, inventory: 0, totalCost: 0, avgCost: 0, history: [], callSignalCount: 0 };
+                    if (!holdingsMap[t.code]) holdingsMap[t.code] = { 
+                        code: t.code, name: t.name, inventory: 0, totalCost: 0, avgCost: 0, history: [], 
+                        callSignalCount: 0, newMemberCount: 0, 
+                        callSignalBuyCost: 0, callSignalBuyQty: 0,
+                        latestThought: null
+                    };
                     if (!realizedMap[t.code]) realizedMap[t.code] = { code: t.code, name: t.name, totalPL: 0, trades: [] };
+                    
                     const stock = holdingsMap[t.code];
                     stock.history.push(t);
                     realizedMap[t.code].trades.push(t);
                     const qty = t.qty || 1000;
+                    
+                    if (t.note && t.note.length > 2 && t.note !== '【新會員】') {
+                        stock.latestThought = { date: t.date, content: t.note };
+                    }
+
                     if (t.type === 'Buy') {
-                        stock.totalCost += t.price * qty;
-                        stock.inventory += qty;
-                        stock.avgCost = stock.inventory > 0 ? stock.totalCost / stock.inventory : 0;
-                        stock.callSignalCount += 1;
+                        if (t.note && t.note.includes('新會員')) {
+                            stock.newMemberCount += 1;
+                        } else {
+                            stock.callSignalCount += 1;
+                            stock.callSignalBuyCost += t.price * qty;
+                            stock.callSignalBuyQty += qty;
+                            
+                            stock.totalCost += t.price * qty;
+                            stock.inventory += qty;
+                            stock.avgCost = stock.inventory > 0 ? stock.totalCost / stock.inventory : 0;
+                        }
                     } else {
                         if (stock.inventory > 0) {
-                            const sellQty = Math.min(stock.inventory, qty);
+                            const sellQty = Math.min(stock.inventory, qty); 
                             const profit = (t.price - stock.avgCost) * sellQty;
                             realizedPL += profit;
                             realizedMap[t.code].totalPL += profit;
@@ -429,13 +589,24 @@
                         }
                     }
                 });
-                const holdings = Object.values(holdingsMap).filter(h => h.inventory > 0).map(h => {
+
+                const holdings = Object.values(holdingsMap).filter(h => h.inventory > 0 || h.newMemberCount > 0 || h.callSignalCount > 0).map(h => {
                     const currentPrice = prices[h.code] || h.avgCost;
                     const marketValue = currentPrice * h.inventory;
                     const unrealizedPL = (currentPrice - h.avgCost) * h.inventory;
-                    return { ...h, currentPrice, marketValue, unrealizedPL, meta: INITIAL_META_DATA[h.code] || {} };
-                });
-                const realizedStocks = Object.values(realizedMap).filter(r => holdingsMap[r.code].inventory === 0 && r.trades.length > 0);
+                    const displayAvgCost = h.callSignalBuyQty > 0 ? (h.callSignalBuyCost / h.callSignalBuyQty) : 0;
+                    const fundPercentage = (marketValue / INITIAL_CAPITAL) * 100;
+                    const roi = h.avgCost > 0 ? ((currentPrice - h.avgCost) / h.avgCost) * 100 : 0; // 計算ROI
+
+                    const meta = INITIAL_META_DATA[h.code] || { market: '上市', industry: '未分類', thoughts: '' };
+                    if (h.latestThought) {
+                        meta.thoughts = `${h.latestThought.content} (${h.latestThought.date})`;
+                    }
+
+                    return { ...h, currentPrice, marketValue, unrealizedPL, displayAvgCost, fundPercentage, meta, roi };
+                }).filter(h => h.inventory > 0); 
+
+                const realizedStocks = Object.values(realizedMap).filter(r => holdingsMap[r.code].inventory === 0 && r.totalPL !== 0); 
                 const totalMarketValue = holdings.reduce((sum, h) => sum + h.marketValue, 0);
                 const totalUnrealizedPL = holdings.reduce((sum, h) => sum + h.unrealizedPL, 0);
                 const totalEquity = INITIAL_CAPITAL + realizedPL + totalUnrealizedPL;
@@ -445,34 +616,37 @@
             }, [transactions, prices]);
 
             return (
-                <div className="min-h-screen bg-yellow-400 font-sans text-slate-900 pb-10">
+                <div className="min-h-screen font-sans text-slate-900 pb-10 relative">
                     {editingId && <EditTransactionModal transaction={transactions.find(t => t.id === editingId)} onSave={(updatedTx) => {setTransactions(prev => prev.map(t => t.id === updatedTx.id ? updatedTx : t)); setEditingId(null);}} onCancel={() => setEditingId(null)} />}
                     {showCloudSettings && <CloudSettingsModal onClose={() => setShowCloudSettings(false)} onConnect={(room)=>{setSyncRoom(room);setIsSyncing(true);localStorage.setItem('stock_bill_fb_room',room);}} currentRoom={syncRoom} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
                     {showAIModal && <AIGeminiModal onClose={() => setShowAIModal(false)} onAnalyze={handleAIResult} apiKey={geminiApiKey} setApiKey={setGeminiApiKey} />}
-                    {/* New Simple Table Modal */}
                     {showSimpleTable && <SimpleHoldingsModal holdings={portfolio.holdings} onClose={() => setShowSimpleTable(false)} />}
 
-                    <header className="bg-yellow-400 shadow-xl border-b-4 border-blue-800 sticky top-0 z-40">
+                    <header className="bg-yellow-400 shadow-xl border-b-4 border-orange-500 sticky top-0 z-40 header-fun-pattern">
                         <div className="max-w-7xl mx-auto px-6 py-4 flex flex-col md:flex-row justify-between items-center relative z-10 gap-4">
                             <div className="flex items-center gap-4">
                                 <label className="relative cursor-pointer group flex-shrink-0 z-50">
-                                    <div className="w-16 h-16 rounded-full border-4 border-blue-800 bg-white overflow-hidden shadow-xl flex items-center justify-center">
+                                    <div className="w-16 h-16 rounded-full border-4 border-orange-500 bg-white overflow-hidden shadow-xl flex items-center justify-center">
                                         {userAvatar ? <img src={userAvatar} className="w-full h-full object-cover" /> : <Icon name="user" size={40} className="text-slate-300" />}
                                     </div>
                                     <input type="file" accept="image/*" className="hidden" onChange={async (e) => {const f=e.target.files[0]; if(f) setUserAvatar(await compressImage(f));}} />
                                 </label>
                                 <div>
-                                    <h1 className="text-4xl md:text-5xl font-extrabold text-blue-800 tracking-wide" style={{ textShadow: '2px 2px 0px #fff' }}>股市比爾強</h1>
-                                    <p className="text-sm font-bold bg-blue-900 text-white inline-block px-2 transform -skew-x-12 mt-1">v3.1 AI 旗艦版</p>
+                                    <h1 className="text-6xl md:text-7xl font-extrabold text-blue-800 tracking-wide ml-8 drop-shadow-2xl" style={{ textShadow: '4px 4px 0px #fff' }}>股市比爾強</h1>
+                                    <p className="text-lg font-bold text-white tracking-widest ml-9 mt-1 drop-shadow-md">產業趨勢挖掘者</p>
+                                    <p className="text-sm font-bold bg-orange-600 text-white inline-block px-2 transform -skew-x-12 mt-2 ml-9">v3.8 AI 旗艦版</p>
                                 </div>
                             </div>
                             <div className="flex flex-col items-end gap-2">
-                                <div className="text-right text-blue-900 font-bold font-mono">
+                                <div className="text-right text-slate-800 font-bold bg-white/40 backdrop-blur px-3 py-1 rounded-lg border border-slate-800/20 shadow-sm">
+                                    用500萬從2025/10/28日開始模擬操作
+                                </div>
+                                <div className="text-right text-orange-900 font-bold font-mono">
                                     <div className="text-xl">{currentTime.toLocaleTimeString()}</div>
                                     <div className="text-xs">{currentTime.toLocaleDateString()}</div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button onClick={() => setShowSimpleTable(true)} className="bg-blue-600 text-white font-bold text-xs px-4 py-2 rounded-full shadow-lg border-2 border-white flex items-center gap-1 hover:bg-blue-700 transition-colors"><Icon name="table" size={14}/> 簡易持股表</button>
+                                    <button onClick={() => setShowSimpleTable(true)} className="bg-orange-600 text-white font-bold text-xs px-4 py-2 rounded-full shadow-lg border-2 border-white flex items-center gap-1 hover:bg-orange-700 transition-colors"><Icon name="table" size={14}/> 簡易持股表</button>
                                     <button onClick={() => setShowAIModal(true)} className="bg-purple-600 text-white font-bold text-xs px-4 py-2 rounded-full shadow-lg border-2 border-white/50 flex items-center gap-1 hover:bg-purple-700 transition-colors"><Icon name="sparkles" size={14}/> AI 助理</button>
                                     <button onClick={() => setShowCloudSettings(true)} className={`font-bold text-xs px-3 py-2 rounded flex items-center gap-1 shadow-md text-white ${isSyncing?'bg-green-600':'bg-slate-400'}`}><Icon name="settings" size={14}/> {isSyncing ? syncRoom : '設定'}</button>
                                 </div>
@@ -482,52 +656,159 @@
 
                     <main className="max-w-7xl mx-auto p-4 md:p-6 space-y-6">
                         <section className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            <div className="bg-yellow-100 rounded-2xl p-5 text-slate-800 shadow-lg border-4 border-yellow-200 relative overflow-hidden">
-                                <Icon name="wallet" size={80} className="absolute -right-4 -top-4 opacity-10"/>
+                            <div className="bg-gradient-to-br from-yellow-100 to-orange-100 rounded-2xl p-5 text-slate-800 shadow-lg border-4 border-yellow-300 relative overflow-hidden">
+                                <Icon name="wallet" size={80} className="absolute -right-4 -top-4 opacity-10 text-orange-600"/>
                                 <p className="text-slate-500 text-xs font-bold uppercase mb-1">總資產</p>
-                                <h2 className="text-3xl font-bold text-slate-900 mb-2">{formatMoney(portfolio.totalMarketValue)}</h2>
+                                <h2 className="text-3xl font-black text-slate-900 mb-2">{formatMoney(portfolio.totalMarketValue)}</h2>
                                 <div className="flex justify-between items-end border-t border-yellow-300 pt-2">
-                                    <div><p className="text-slate-500 text-xs font-bold">現金</p><span className="font-mono font-bold">{formatMoney(portfolio.cash)}</span></div>
-                                    <div className="text-right"><span className="text-xs text-slate-500 block">水位</span><span className="text-xl font-bold">{formatPercent(portfolio.usageRate)}</span></div>
+                                    <div><p className="text-slate-500 text-xs font-bold">現金</p><span className="font-mono font-bold text-slate-700">{formatMoney(portfolio.cash)}</span></div>
+                                    <div className="text-right"><span className="text-xs text-slate-500 block">水位</span><span className="text-xl font-bold text-orange-600">{formatPercent(portfolio.usageRate)}</span></div>
                                 </div>
                             </div>
-                            <div className="md:col-span-2 bg-slate-800 rounded-2xl p-5 text-white shadow-lg flex items-center justify-around">
-                                <div className="text-center"><p className="text-slate-400 text-xs font-bold mb-1">未實現</p><div className={`text-4xl font-bold ${portfolio.totalUnrealizedPL >= 0 ? 'text-red-400' : 'text-green-400'}`}>{portfolio.totalUnrealizedPL > 0 ? '+' : ''}{formatMoney(portfolio.totalUnrealizedPL)}</div></div>
-                                <div className="w-px h-16 bg-slate-600"></div>
-                                <div className="text-center"><p className="text-slate-400 text-xs font-bold mb-1">已實現</p><div className={`text-3xl font-bold ${portfolio.realizedPL >= 0 ? 'text-red-400' : 'text-green-400'}`}>{portfolio.realizedPL > 0 ? '+' : ''}{formatMoney(portfolio.realizedPL)}</div></div>
+                            
+                            {/* 優化後的主畫面損益卡片：淺黃底 (Yellow-50) */}
+                            <div className="md:col-span-2 bg-yellow-50 rounded-2xl p-6 shadow-xl flex items-center justify-around border-4 border-slate-200">
+                                <div className="text-center w-1/2 border-r-2 border-slate-100 pr-4">
+                                    <p className="text-slate-400 text-xs font-bold mb-1 uppercase tracking-wide">未實現損益</p>
+                                    <div className={`text-4xl font-black tracking-tight ${getColor(portfolio.totalUnrealizedPL)}`}>
+                                        {portfolio.totalUnrealizedPL > 0 ? '+' : ''}{formatMoney(portfolio.totalUnrealizedPL)}
+                                    </div>
+                                </div>
+                                <div className="text-center w-1/2 pl-4">
+                                    <p className="text-slate-400 text-xs font-bold mb-1 uppercase tracking-wide">已實現損益</p>
+                                    <div className={`text-3xl font-black tracking-tight ${getColor(portfolio.realizedPL)}`}>
+                                        {portfolio.realizedPL > 0 ? '+' : ''}{formatMoney(portfolio.realizedPL)}
+                                    </div>
+                                </div>
                             </div>
+
                             <div className="bg-white rounded-2xl p-4 shadow-lg border-2 border-yellow-200 flex flex-col justify-center gap-2">
                                 <div className="text-purple-600 font-bold flex items-center gap-2"><Icon name="sparkles" size={16}/> 試試 AI</div>
-                                <p className="text-xs text-slate-500">上傳庫存截圖，自動更新股價；上傳成交回報，自動記帳。</p>
+                                <p className="text-xs text-slate-500">截圖「葉宇乘指令」上傳，AI 自動分析買賣點與心得。</p>
                             </div>
                         </section>
 
-                        <div className="bg-yellow-50 rounded-3xl p-6 shadow-xl border-2 border-yellow-200 min-h-[500px]">
+                        <div className="bg-yellow-50/80 backdrop-blur-sm rounded-3xl p-6 shadow-xl border-2 border-yellow-200 min-h-[500px]">
                             <div className="flex gap-4 mb-6 border-b-2 border-yellow-200 pb-2 overflow-x-auto">
                                 {[{id:'holdings',label:'持有庫存',icon:'briefcase'},{id:'timeline',label:'交易紀錄',icon:'history'},{id:'realized',label:'已結算',icon:'check'}].map(tab=>(
-                                    <button key={tab.id} onClick={()=>setActiveTab(tab.id)} className={`flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab===tab.id?'bg-blue-600 text-white shadow-lg':'bg-white text-slate-500 hover:bg-yellow-100'}`}><Icon name={tab.icon} size={18}/> {tab.label}</button>
+                                    <button key={tab.id} onClick={()=>setActiveTab(tab.id)} className={`flex items-center gap-2 px-6 py-2 rounded-xl font-bold transition-all whitespace-nowrap ${activeTab===tab.id?'bg-orange-600 text-white shadow-lg':'bg-white text-slate-500 hover:bg-yellow-100'}`}><Icon name={tab.icon} size={18}/> {tab.label}</button>
                                 ))}
                             </div>
 
                             {activeTab === 'holdings' && (
-                                <div className="flex gap-4 overflow-x-auto pb-4">
-                                    {portfolio.holdings.map((stock, i) => (
-                                        <div key={stock.code} onClick={()=>setSelectedStockCode(selectedStockCode===stock.code?null:stock.code)} className="min-w-[300px] bg-white rounded-2xl shadow border-2 border-transparent hover:border-blue-400 cursor-pointer transition-all flex-shrink-0">
-                                            <div className="bg-slate-50 p-3 border-b flex justify-between items-center">
-                                                <div className="flex items-center gap-2"><span className="bg-blue-600 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold">{i+1}</span><span className="font-bold text-lg">{stock.name}</span><span className="text-xs text-slate-400">{stock.code}</span></div>
-                                                <div className="text-right" title="點擊修改股價" onClick={(e)=>{e.stopPropagation(); const p=prompt('輸入新價',stock.currentPrice); if(p) setPrices(prev=>({...prev,[stock.code]:parseFloat(p)}));}}><div className="font-bold text-xl">{stock.currentPrice}</div></div>
-                                            </div>
-                                            <div className="p-4 space-y-3">
-                                                <div className="bg-yellow-50 p-2 rounded text-xs text-slate-700 leading-relaxed border border-yellow-100">{stock.meta.highlight||'暫無亮點'}</div>
-                                                <div className="grid grid-cols-2 gap-2 text-sm">
-                                                    <div><span className="text-slate-400 text-xs block">均價</span><span className="font-bold font-mono">{formatDecimal(stock.avgCost)}</span></div>
-                                                    <div className="text-right"><span className="text-slate-400 text-xs block">張數</span><span className="font-bold font-mono">{stock.inventory/1000}</span></div>
-                                                    <div><span className="text-slate-400 text-xs block">市值</span><span className="font-bold font-mono">{formatMoney(stock.marketValue)}</span></div>
-                                                    <div className="text-right"><span className="text-slate-400 text-xs block">損益</span><span className={`font-bold font-mono ${getColor(stock.unrealizedPL)}`}>{formatMoney(stock.unrealizedPL)}</span></div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                    {portfolio.holdings.map((stock, i) => {
+                                        const marketStyle = getMarketStyle(stock.meta.market);
+                                        return (
+                                        <div key={stock.code} onClick={()=>setSelectedStockCode(selectedStockCode===stock.code?null:stock.code)} className="bg-white rounded-2xl shadow-xl border border-slate-100 hover:shadow-2xl transition-all cursor-pointer overflow-hidden flex flex-col group relative">
+                                            
+                                            {/* Top Banner (Ticker Style) */}
+                                            <div className="p-4 border-b border-slate-100 flex justify-between items-center bg-white relative z-10">
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`text-[10px] font-bold px-2 py-0.5 rounded shadow-sm ${marketStyle.badge}`}>{stock.meta.market}</span>
+                                                        <span className="font-mono text-slate-400 text-xs font-bold">{stock.code}</span>
+                                                    </div>
+                                                    <div className="font-black text-2xl text-slate-800 tracking-tight mt-1">{stock.name}</div>
+                                                </div>
+                                                
+                                                {/* Price Display (Red/Green) */}
+                                                <div className="text-right" title="點擊修改收盤價" onClick={(e)=>{e.stopPropagation(); const p=prompt('輸入新收盤價',stock.currentPrice); if(p) setPrices(prev=>({...prev,[stock.code]:parseFloat(p)}));}}>
+                                                    <div className="text-[10px] text-slate-400 mb-0.5 flex items-center justify-end gap-1">收盤價 <span className="font-mono">{currentTime.toLocaleDateString()}</span></div>
+                                                    <div className={`text-3xl font-black font-mono leading-none ${getPriceColor(stock.currentPrice, stock.avgCost)}`}>
+                                                        {stock.currentPrice}
+                                                    </div>
+                                                    <div className={`text-xs font-bold mt-1 ${getColor(stock.roi)}`}>
+                                                        {stock.roi > 0 ? '▲' : stock.roi < 0 ? '▼' : ''} {Math.abs(stock.roi).toFixed(2)}%
+                                                    </div>
                                                 </div>
                                             </div>
+
+                                            {/* Middle Stats Grid */}
+                                            <div className="p-4 bg-slate-50/50">
+                                                <div className="grid grid-cols-2 gap-y-3 gap-x-4 text-sm">
+                                                    <div>
+                                                        <span className="text-slate-400 text-[10px] uppercase font-bold block mb-0.5">摳訊均價</span>
+                                                        <span className="font-bold text-lg text-slate-700 font-mono">{formatDecimal(stock.displayAvgCost)}</span>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-slate-400 text-[10px] uppercase font-bold block mb-0.5">庫存</span>
+                                                        <span className="font-bold text-lg text-slate-800">{Math.floor(stock.inventory/1000)}<span className="text-xs text-slate-500">張</span> <span className="text-xs text-slate-400 font-mono">({stock.inventory})</span></span>
+                                                    </div>
+                                                    <div>
+                                                        <span className="text-slate-400 text-[10px] uppercase font-bold block mb-0.5">資金部位</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="h-2 w-full bg-slate-200 rounded-full overflow-hidden">
+                                                                <div className="h-full bg-blue-500 rounded-full" style={{width: `${Math.min(stock.fundPercentage, 100)}%`}}></div>
+                                                            </div>
+                                                            <span className="font-bold text-xs text-slate-600 font-mono">{Math.round(stock.fundPercentage)}%</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-slate-400 text-[10px] uppercase font-bold block mb-0.5">未實現損益</span>
+                                                        <span className={`font-black text-lg font-mono ${getColor(stock.unrealizedPL)}`}>{stock.unrealizedPL > 0 ? '+' : ''}{formatNumber(stock.unrealizedPL)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Bottom Notes */}
+                                            <div className="p-4 space-y-2 border-t border-slate-100 bg-white">
+                                                <div className="flex gap-2 text-[10px]">
+                                                    <span className="bg-orange-100 text-orange-700 px-2 py-1 rounded font-bold">摳訊 {stock.callSignalCount}</span>
+                                                    <span className="bg-purple-100 text-purple-700 px-2 py-1 rounded font-bold">新會員 {stock.newMemberCount}</span>
+                                                </div>
+                                                <p className="text-xs text-slate-600 line-clamp-2 leading-relaxed">
+                                                    <span className="font-bold text-orange-500">亮點：</span>{stock.meta.highlight}
+                                                </p>
+                                                {stock.meta.thoughts && (
+                                                    <div className="text-xs text-slate-500 italic bg-slate-50 p-2 rounded border border-slate-100 mt-2">
+                                                        <span className="font-bold not-italic text-slate-400 mr-1">筆記:</span> {stock.meta.thoughts}
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                    ))}
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {/* 明細區塊 (當 activeTab 為 holdings 且有點選時顯示) */}
+                            {activeTab === 'holdings' && selectedStockCode && (
+                                <div className="mt-8 bg-white rounded-xl shadow-2xl border-2 border-orange-500 overflow-hidden animate-fade-in relative z-50">
+                                    <div className="bg-orange-500 px-6 py-3 font-bold text-white flex justify-between items-center">
+                                        <span className="text-lg flex items-center gap-2"><Icon name="list" size={20}/> {portfolio.holdings.find(s => s.code === selectedStockCode)?.name} ({selectedStockCode}) 交易明細</span>
+                                        <button onClick={() => setSelectedStockCode(null)} className="hover:bg-orange-600 p-1 rounded"><Icon name="x" size={20}/></button>
+                                    </div>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full text-sm text-left">
+                                            <thead className="bg-orange-50 text-slate-500 font-bold border-b border-orange-200">
+                                                <tr>
+                                                    <th className="px-6 py-3">日期</th>
+                                                    <th className="px-6 py-3">動作</th>
+                                                    <th className="px-6 py-3 text-right">成交價</th>
+                                                    <th className="px-6 py-3 text-right">股數</th>
+                                                    <th className="px-6 py-3 text-right">備註</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-orange-100">
+                                                {portfolio.holdings.find(s => s.code === selectedStockCode)?.history
+                                                    .filter(t => !t.note.includes('新會員')) // 明細只顯示非新會員
+                                                    .map(t => (
+                                                    <tr key={t.id} className="hover:bg-orange-50 transition-colors">
+                                                        <td className="px-6 py-3 font-mono text-slate-600 font-medium">{t.date}</td>
+                                                        <td className="px-6 py-3">
+                                                            <span className={`px-2 py-1 rounded text-xs font-bold ${t.type === 'Buy' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                                                                {t.type === 'Buy' ? '買入' : '賣出'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="px-6 py-3 text-right font-mono font-bold text-slate-700">{t.price}</td>
+                                                        <td className="px-6 py-3 text-right font-mono text-slate-500">{t.qty}</td>
+                                                        <td className="px-6 py-3 text-right text-slate-500 text-xs">{t.note}</td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
                                 </div>
                             )}
 
@@ -536,7 +817,9 @@
                                     <table className="w-full text-sm text-left">
                                         <thead className="bg-slate-100 text-slate-500 uppercase"><tr><th className="px-4 py-3">日期</th><th className="px-4 py-3">名稱</th><th className="px-4 py-3">動作</th><th className="px-4 py-3 text-right">價格</th><th className="px-4 py-3 text-right">股數</th><th className="px-4 py-3">操作</th></tr></thead>
                                         <tbody>
-                                            {[...transactions].sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => (
+                                            {[...transactions]
+                                                .filter(t => !t.note.includes('新會員')) // 時間軸過濾新會員
+                                                .sort((a,b)=>new Date(b.date)-new Date(a.date)).map(t => (
                                                 <tr key={t.id} className="border-b hover:bg-slate-50">
                                                     <td className="px-4 py-3 font-mono">{t.date}</td>
                                                     <td className="px-4 py-3 font-bold">{t.name} <span className="text-xs text-slate-400 font-normal">{t.code}</span></td>
